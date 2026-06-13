@@ -9,7 +9,8 @@ export default function ManageClients() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Clientes</h1>
-      <table className="w-full bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
         <thead className="bg-slate-50 text-left">
           <tr><th className="p-3">Nombre</th><th className="p-3">Email</th><th className="p-3">Teléfono</th><th className="p-3">Alta</th></tr>
         </thead>
@@ -27,6 +28,7 @@ export default function ManageClients() {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

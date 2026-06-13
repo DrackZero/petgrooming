@@ -39,7 +39,8 @@ export default function ManageProducts() {
         <button className="bg-brand text-white rounded py-2 sm:col-span-2 hover:bg-brand-dark">Crear producto</button>
       </form>
 
-      <table className="w-full bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
         <thead className="bg-slate-50 text-left">
           <tr><th className="p-3">Nombre</th><th className="p-3">Precio</th><th className="p-3">Stock</th><th className="p-3"></th></tr>
         </thead>
@@ -56,6 +57,7 @@ export default function ManageProducts() {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
