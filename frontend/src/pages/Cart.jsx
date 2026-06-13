@@ -1,0 +1,62 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useCart } from '../hooks/useCart.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { createOrder } from '../api/orders.js';
+import Notification from '../components/Notification.jsx';
+
+export default function Cart() {
+  const { items, updateQuantity, removeItem, total, clearCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [msg, setMsg] = useState('');
+
+  const handleCheckout = async () => {
+    if (!isAuthenticated) return navigate('/login');
+    try {
+      await createOrder(items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })));
+      clearCart();
+      setMsg('¡Pedido realizado con éxito!');
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'Error al procesar el pedido');
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Carrito</h1>
+      <Notification type="info" message={msg} onClose={() => setMsg('')} />
+
+      {items.length === 0 ? (
+        <p className="text-slate-500">Tu carrito está vacío.</p>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-lg divide-y">
+          {items.map((i) => (
+            <div key={i.product_id} className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium">{i.name}</p>
+                <p className="text-sm text-slate-500">${i.price} c/u</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number" min="1" value={i.quantity}
+                  onChange={(e) => updateQuantity(i.product_id, Number(e.target.value))}
+                  className="w-16 border rounded p-1 text-center"
+                />
+                <button onClick={() => removeItem(i.product_id)} className="text-red-600 text-sm hover:underline">
+                  Quitar
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="p-4 flex items-center justify-between">
+            <span className="font-bold text-lg">Total: ${total.toFixed(2)}</span>
+            <button onClick={handleCheckout} className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">
+              Finalizar compra
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
