@@ -11,6 +11,7 @@ export const cancelAppointment = (id) =>
 
 // ─── Veterinario ───
 export const createSlot = (data) => api.post('/appointments/slots', data).then((r) => r.data);
+export const createSlotsBulk = (data) => api.post('/appointments/slots/bulk', data).then((r) => r.data);
 export const deleteSlot = (id) => api.delete(`/appointments/slots/${id}`).then((r) => r.data);
 export const getAllAppointments = () => api.get('/appointments/all').then((r) => r.data);
 export const getAgenda = (date) =>

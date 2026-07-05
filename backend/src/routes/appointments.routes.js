@@ -6,6 +6,7 @@ import {
   rescheduleAppointment,
   cancelAppointment,
   createSlot,
+  createSlotsBulk,
   deleteSlot,
   listAllAppointments,
   getAgenda,
@@ -23,6 +24,7 @@ router.use(authRequired);
 router.get('/all', vetOnly, listAllAppointments);
 router.get('/agenda', vetOnly, getAgenda);
 router.post('/slots', vetOnly, createSlot);
+router.post('/slots/bulk', vetOnly, createSlotsBulk);
 router.delete('/slots/:id', vetOnly, deleteSlot);
 router.post('/vet', vetOnly, vetCreateAppointment);
 router.patch('/:id/status', vetOnly, updateAppointmentStatus);

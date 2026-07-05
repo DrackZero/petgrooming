@@ -151,6 +151,81 @@ export const createSlot = async (req, res, next) => {
   }
 };
 
+// POST /api/appointments/slots/bulk  → genera la jornada laboral en bloque
+// body: { start_date:'2026-07-07', end_date:'2026-07-18', weekdays:[1,2,3,4,5],
+//         day_start:'08:00', day_end:'17:00', duration_min:60 }
+// weekdays usa getDay() de JS: 0=domingo … 6=sábado.
+export const createSlotsBulk = async (req, res, next) => {
+  try {
+    const { start_date, end_date, weekdays, day_start, day_end, duration_min } = req.body;
+
+    if (!start_date || !end_date || !Array.isArray(weekdays) || !weekdays.length || !day_start || !day_end) {
+      return res.status(400).json({ message: 'Faltan datos: fechas, días de la semana y horario de jornada' });
+    }
+
+    const dur = Number(duration_min) || 60;
+    if (dur < 15 || dur > 240) {
+      return res.status(400).json({ message: 'La duración de cada cita debe estar entre 15 y 240 minutos' });
+    }
+
+    const start = new Date(`${start_date}T00:00:00`);
+    const end = new Date(`${end_date}T00:00:00`);
+    if (isNaN(start) || isNaN(end) || end < start) {
+      return res.status(400).json({ message: 'Rango de fechas inválido' });
+    }
+    if ((end - start) / 86400000 > 60) {
+      return res.status(400).json({ message: 'El rango máximo es de 60 días' });
+    }
+
+    const toMin = (hhmm) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const startMin = toMin(day_start);
+    const endMin = toMin(day_end);
+    if (!(startMin < endMin)) {
+      return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la de fin' });
+    }
+
+    // Horarios ya existentes en el rango, para omitir choques (UC-19).
+    const endPlus = new Date(end.getTime() + 86400000);
+    const existing = await query(
+      'SELECT starts_at, ends_at FROM availability_slots WHERE starts_at >= $1 AND starts_at < $2',
+      [start, endPlus]
+    );
+    const busy = existing.rows.map((r) => [new Date(r.starts_at), new Date(r.ends_at)]);
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const now = new Date();
+    const candidates = [];
+    let skipped = 0;
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (!weekdays.includes(d.getDay())) continue;
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      for (let t = startMin; t + dur <= endMin; t += dur) {
+        const cs = new Date(`${dateStr}T${pad(Math.floor(t / 60))}:${pad(t % 60)}:00`);
+        const ce = new Date(cs.getTime() + dur * 60000);
+        const clash = cs <= now || busy.some(([bs, be]) => bs < ce && be > cs);
+        if (clash) { skipped++; continue; }
+        candidates.push([cs, ce]);
+      }
+    }
+
+    if (candidates.length > 500) {
+      return res.status(400).json({ message: `Se generarían ${candidates.length} horarios (máx. 500). Reduce el rango o aumenta la duración.` });
+    }
+
+    for (const [cs, ce] of candidates) {
+      await query('INSERT INTO availability_slots (starts_at, ends_at) VALUES ($1, $2)', [cs, ce]);
+    }
+
+    res.status(201).json({ created: candidates.length, skipped });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // DELETE /api/appointments/slots/:id  → eliminar horario libre
 export const deleteSlot = async (req, res, next) => {
   try {
