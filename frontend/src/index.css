@@ -3,5 +3,12 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply bg-white text-slate-700 antialiased;
+}
+
+/* Título de página consistente */
+@layer components {
+  .page-title {
+    @apply text-2xl font-extrabold text-brand-dark;
+  }
 }

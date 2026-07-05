@@ -1,25 +1,30 @@
 -- ============================================================
 --  PetGrooming · Esquema de base de datos (PostgreSQL)
---  13 tablas
+--  13 tablas · 3 roles (cliente, veterinario, admin)
 -- ============================================================
 
--- Limpieza opcional (en orden inverso por dependencias)
-DROP TABLE IF EXISTS notifications     CASCADE;
-DROP TABLE IF EXISTS payments          CASCADE;
-DROP TABLE IF EXISTS order_items       CASCADE;
-DROP TABLE IF EXISTS orders            CASCADE;
-DROP TABLE IF EXISTS products          CASCADE;
-DROP TABLE IF EXISTS enrollments       CASCADE;
-DROP TABLE IF EXISTS courses           CASCADE;
-DROP TABLE IF EXISTS appointments      CASCADE;
-DROP TABLE IF EXISTS slots             CASCADE;
-DROP TABLE IF EXISTS services          CASCADE;
-DROP TABLE IF EXISTS pets              CASCADE;
-DROP TABLE IF EXISTS users             CASCADE;
-DROP TYPE  IF EXISTS user_role         CASCADE;
+-- Limpieza (orden inverso por dependencias)
+-- Tablas del esquema anterior (v1), por si existen:
+DROP TABLE IF EXISTS services            CASCADE;
+DROP TABLE IF EXISTS settings            CASCADE;
+DROP TABLE IF EXISTS slots               CASCADE;
+DROP TABLE IF EXISTS notifications       CASCADE;
+DROP TABLE IF EXISTS payments            CASCADE;
+DROP TABLE IF EXISTS order_items         CASCADE;
+DROP TABLE IF EXISTS orders              CASCADE;
+DROP TABLE IF EXISTS products            CASCADE;
+DROP TABLE IF EXISTS enrollments         CASCADE;
+DROP TABLE IF EXISTS courses             CASCADE;
+DROP TABLE IF EXISTS appointments        CASCADE;
+DROP TABLE IF EXISTS availability_slots  CASCADE;
+DROP TABLE IF EXISTS vaccines            CASCADE;
+DROP TABLE IF EXISTS pets                CASCADE;
+DROP TABLE IF EXISTS refresh_tokens      CASCADE;
+DROP TABLE IF EXISTS users               CASCADE;
+DROP TYPE  IF EXISTS user_role           CASCADE;
 
 -- ─── Tipos ENUM ─────────────────────────────────────────────
-CREATE TYPE user_role AS ENUM ('client', 'admin');
+CREATE TYPE user_role AS ENUM ('cliente', 'veterinario', 'admin');
 
 -- 1) USERS ──────────────────────────────────────────────────
 CREATE TABLE users (
@@ -28,62 +33,71 @@ CREATE TABLE users (
     email         VARCHAR(160)  NOT NULL UNIQUE,
     password_hash VARCHAR(255)  NOT NULL,
     phone         VARCHAR(30),
-    role          user_role     NOT NULL DEFAULT 'client',
+    address       VARCHAR(255),
+    role          user_role     NOT NULL DEFAULT 'cliente',
+    is_active     BOOLEAN       NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 2) PETS ───────────────────────────────────────────────────
+-- 2) REFRESH_TOKENS (sesiones de larga duración) ────────────
+CREATE TABLE refresh_tokens (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       VARCHAR(500) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ  NOT NULL,
+    revoked     BOOLEAN      NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- 3) PETS (registradas por el veterinario) ──────────────────
 CREATE TABLE pets (
     id          SERIAL PRIMARY KEY,
     owner_id    INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name        VARCHAR(80)  NOT NULL,
-    species     VARCHAR(40)  NOT NULL,          -- perro, gato, etc.
+    species     VARCHAR(40),
     breed       VARCHAR(80),
-    size        VARCHAR(20),                     -- small, medium, large
-    birth_date  DATE,
+    age         INTEGER,
     notes       TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 3) SERVICES (tipos de servicio de peluquería) ─────────────
-CREATE TABLE services (
-    id              SERIAL PRIMARY KEY,
-    name            VARCHAR(120)   NOT NULL,
-    description     TEXT,
-    price           NUMERIC(10,2)  NOT NULL DEFAULT 0,
-    duration_min    INTEGER        NOT NULL DEFAULT 60,
-    active          BOOLEAN        NOT NULL DEFAULT true,
-    created_at      TIMESTAMPTZ    NOT NULL DEFAULT now()
+-- 4) VACCINES (historial de vacunación) ─────────────────────
+CREATE TABLE vaccines (
+    id            SERIAL PRIMARY KEY,
+    pet_id        INTEGER      NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+    name          VARCHAR(120) NOT NULL,
+    applied_date  DATE         NOT NULL DEFAULT CURRENT_DATE,
+    notes         TEXT,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 4) SLOTS (franjas horarias disponibles) ───────────────────
-CREATE TABLE slots (
+-- 5) AVAILABILITY_SLOTS (horarios definidos por el veterinario)
+CREATE TABLE availability_slots (
     id          SERIAL PRIMARY KEY,
     starts_at   TIMESTAMPTZ  NOT NULL,
     ends_at     TIMESTAMPTZ  NOT NULL,
-    capacity    INTEGER      NOT NULL DEFAULT 1,
-    is_available BOOLEAN     NOT NULL DEFAULT true,
+    is_booked   BOOLEAN      NOT NULL DEFAULT false,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 5) APPOINTMENTS (citas) ───────────────────────────────────
+-- 6) APPOINTMENTS (citas) ───────────────────────────────────
 CREATE TABLE appointments (
     id          SERIAL PRIMARY KEY,
-    user_id     INTEGER      NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
-    pet_id      INTEGER      NOT NULL REFERENCES pets(id)     ON DELETE CASCADE,
-    service_id  INTEGER      NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
-    slot_id     INTEGER      NOT NULL REFERENCES slots(id)    ON DELETE RESTRICT,
-    status      VARCHAR(20)  NOT NULL DEFAULT 'pending',  -- pending|confirmed|done|cancelled
+    user_id     INTEGER      NOT NULL REFERENCES users(id)              ON DELETE CASCADE,
+    pet_id      INTEGER      NOT NULL REFERENCES pets(id)               ON DELETE CASCADE,
+    slot_id     INTEGER      NOT NULL UNIQUE REFERENCES availability_slots(id) ON DELETE RESTRICT,
+    status      VARCHAR(20)  NOT NULL DEFAULT 'pendiente',  -- pendiente|confirmada|completada|cancelada
     notes       TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 6) COURSES (cursos) ───────────────────────────────────────
+-- 7) COURSES ────────────────────────────────────────────────
 CREATE TABLE courses (
     id           SERIAL PRIMARY KEY,
     title        VARCHAR(160)  NOT NULL,
     description  TEXT,
-    price        NUMERIC(10,2) NOT NULL DEFAULT 0,
+    price        NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+    duration     VARCHAR(80),
     capacity     INTEGER       NOT NULL DEFAULT 20,
     starts_at    TIMESTAMPTZ,
     image_url    VARCHAR(300),
@@ -91,94 +105,85 @@ CREATE TABLE courses (
     created_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 7) ENROLLMENTS (inscripciones a cursos) ───────────────────
+-- 8) ENROLLMENTS (inscripciones) ────────────────────────────
 CREATE TABLE enrollments (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER      NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
     course_id   INTEGER      NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    status      VARCHAR(20)  NOT NULL DEFAULT 'active',  -- active|cancelled|completed
+    status      VARCHAR(20)  NOT NULL DEFAULT 'activa',  -- activa|completada|cancelada
     enrolled_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (user_id, course_id)
 );
 
--- 8) PRODUCTS (tienda) ──────────────────────────────────────
+-- 9) PRODUCTS (tienda) ──────────────────────────────────────
 CREATE TABLE products (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(160)  NOT NULL,
     description TEXT,
-    price       NUMERIC(10,2) NOT NULL DEFAULT 0,
-    stock       INTEGER       NOT NULL DEFAULT 0,
+    price       NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+    stock       INTEGER       NOT NULL DEFAULT 0 CHECK (stock >= 0),
     image_url   VARCHAR(300),
     category    VARCHAR(80),
     active      BOOLEAN       NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 9) ORDERS (pedidos) ───────────────────────────────────────
+-- 10) ORDERS (pedidos) ──────────────────────────────────────
 CREATE TABLE orders (
-    id           SERIAL PRIMARY KEY,
-    user_id      INTEGER       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    total        NUMERIC(10,2) NOT NULL DEFAULT 0,
-    status       VARCHAR(20)   NOT NULL DEFAULT 'pending', -- pending|paid|shipped|cancelled
-    created_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
+    id               SERIAL PRIMARY KEY,
+    user_id          INTEGER       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    total            NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (total >= 0),
+    status           VARCHAR(20)   NOT NULL DEFAULT 'pendiente', -- pendiente|pagada|enviada|entregada|cancelada
+    payment_method   VARCHAR(40),
+    shipping_address VARCHAR(255),
+    created_at       TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 10) ORDER_ITEMS (líneas de pedido) ────────────────────────
+-- 11) ORDER_ITEMS (líneas de pedido) ────────────────────────
 CREATE TABLE order_items (
     id          SERIAL PRIMARY KEY,
     order_id    INTEGER       NOT NULL REFERENCES orders(id)   ON DELETE CASCADE,
     product_id  INTEGER       NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    quantity    INTEGER       NOT NULL DEFAULT 1,
-    unit_price  NUMERIC(10,2) NOT NULL DEFAULT 0
+    quantity    INTEGER       NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    unit_price  NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (unit_price >= 0)
 );
 
--- 11) PAYMENTS (pagos) ──────────────────────────────────────
+-- 12) PAYMENTS (transacciones Wompi) ────────────────────────
 CREATE TABLE payments (
-    id            SERIAL PRIMARY KEY,
-    order_id      INTEGER       REFERENCES orders(id) ON DELETE SET NULL,
-    user_id       INTEGER       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    amount        NUMERIC(10,2) NOT NULL,
-    provider      VARCHAR(40)   NOT NULL DEFAULT 'manual',
-    provider_ref  VARCHAR(160),
-    status        VARCHAR(20)   NOT NULL DEFAULT 'pending', -- pending|succeeded|failed
-    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    id              SERIAL PRIMARY KEY,
+    order_id        INTEGER       NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+    transaction_id  VARCHAR(160)  UNIQUE,
+    amount          NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+    status          VARCHAR(20)   NOT NULL DEFAULT 'pendiente', -- pendiente|aprobado|rechazado|fallido
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- 12) NOTIFICATIONS (avisos al usuario) ─────────────────────
+-- 13) NOTIFICATIONS (correos transaccionales enviados) ──────
 CREATE TABLE notifications (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    title       VARCHAR(160) NOT NULL,
-    body        TEXT,
-    is_read     BOOLEAN      NOT NULL DEFAULT false,
+    type        VARCHAR(60)  NOT NULL,               -- cita|inscripcion|pedido
+    status      VARCHAR(20)  NOT NULL DEFAULT 'enviada', -- enviada|fallida
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 13) SETTINGS (configuración del negocio, clave-valor) ──────
-CREATE TABLE settings (
-    key         VARCHAR(80)  PRIMARY KEY,
-    value       TEXT,
-    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-
 -- ─── Índices útiles ─────────────────────────────────────────
-CREATE INDEX idx_pets_owner          ON pets(owner_id);
-CREATE INDEX idx_appointments_user   ON appointments(user_id);
-CREATE INDEX idx_appointments_slot   ON appointments(slot_id);
-CREATE INDEX idx_enrollments_user    ON enrollments(user_id);
-CREATE INDEX idx_orders_user         ON orders(user_id);
-CREATE INDEX idx_order_items_order   ON order_items(order_id);
-CREATE INDEX idx_notifications_user  ON notifications(user_id);
+CREATE INDEX idx_refresh_user       ON refresh_tokens(user_id);
+CREATE INDEX idx_pets_owner         ON pets(owner_id);
+CREATE INDEX idx_vaccines_pet       ON vaccines(pet_id);
+CREATE INDEX idx_appointments_user  ON appointments(user_id);
+CREATE INDEX idx_appointments_pet   ON appointments(pet_id);
+CREATE INDEX idx_enrollments_user   ON enrollments(user_id);
+CREATE INDEX idx_orders_user        ON orders(user_id);
+CREATE INDEX idx_order_items_order  ON order_items(order_id);
+CREATE INDEX idx_notifications_user ON notifications(user_id);
 
--- ─── Datos semilla mínimos ──────────────────────────────────
--- Admin por defecto (email: admin@petgrooming.com · password: admin123)
-INSERT INTO users (name, email, password_hash, role)
-VALUES ('Administrador', 'admin@petgrooming.com',
-        '$2a$10$lb3HMbqtD5evbKK8vjVRJuSklJpNOgta6W70DRbl9ptLxYwEuYZca', 'admin')
+-- ─── Datos semilla ──────────────────────────────────────────
+-- Admin  (admin@petgrooming.com / admin123)
+-- Vet    (vet@petgrooming.com   / vet123)
+INSERT INTO users (name, email, password_hash, role) VALUES
+  ('Administrador', 'admin@petgrooming.com',
+   '$2a$10$CbAAqYBZ9Spd7.LQmryvX.G6foigkNVcwYb4mx9jY9pCQanbjY9o6', 'admin'),
+  ('Dra. Veterinaria', 'vet@petgrooming.com',
+   '$2a$10$dIhnsz2H06VDYepoHx0Ep.KVDa.jIUmkfKmqwcHIZYagVbjk03bZy', 'veterinario')
 ON CONFLICT (email) DO NOTHING;
-
-INSERT INTO services (name, description, price, duration_min) VALUES
-  ('Baño básico',        'Baño, secado y cepillado',           25.00, 45),
-  ('Corte completo',     'Baño + corte de pelo a tijera/máquina', 40.00, 90),
-  ('Corte de uñas',      'Corte y limado de uñas',              10.00, 20)
-ON CONFLICT DO NOTHING;

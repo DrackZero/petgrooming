@@ -42,7 +42,7 @@ export const enroll = async (req, res, next) => {
     // Comprueba cupo.
     const count = await query(
       `SELECT COUNT(*)::int AS total FROM enrollments
-       WHERE course_id = $1 AND status = 'active'`,
+       WHERE course_id = $1 AND status = 'activa'`,
       [courseId]
     );
     if (count.rows[0].total >= course.rows[0].capacity) {
@@ -52,7 +52,7 @@ export const enroll = async (req, res, next) => {
     const { rows } = await query(
       `INSERT INTO enrollments (user_id, course_id)
        VALUES ($1, $2)
-       ON CONFLICT (user_id, course_id) DO UPDATE SET status = 'active'
+       ON CONFLICT (user_id, course_id) DO UPDATE SET status = 'activa'
        RETURNING *`,
       [req.user.id, courseId]
     );
@@ -66,7 +66,7 @@ export const enroll = async (req, res, next) => {
 export const cancelEnrollment = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `UPDATE enrollments SET status = 'cancelled'
+      `UPDATE enrollments SET status = 'cancelada'
        WHERE course_id = $1 AND user_id = $2 RETURNING *`,
       [req.params.id, req.user.id]
     );

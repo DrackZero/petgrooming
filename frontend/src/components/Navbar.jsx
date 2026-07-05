@@ -4,12 +4,12 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 
 const linkClass = ({ isActive }) =>
-  `px-3 py-2 rounded-md text-sm font-medium ${
-    isActive ? 'bg-brand text-white' : 'text-slate-600 hover:bg-slate-100'
+  `px-3 py-2 rounded-full text-sm font-semibold transition ${
+    isActive ? 'bg-brand text-white' : 'text-slate-600 hover:bg-brand-50 hover:text-brand-dark'
   }`;
 
 export default function Navbar() {
-  const { isAuthenticated, isAdmin, user, logout } = useAuth();
+  const { isAuthenticated, isAdmin, isVet, isClient, user, logout } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false); // menú móvil
@@ -22,26 +22,45 @@ export default function Navbar() {
     navigate('/login');
   };
 
-  // Enlaces compartidos entre escritorio y móvil.
+  // Enlaces según el rol del usuario.
   const links = (
     <>
-      <NavLink to="/" className={linkClass} end onClick={close}>Inicio</NavLink>
-      <NavLink to="/courses" className={linkClass} onClick={close}>Cursos</NavLink>
-      <NavLink to="/shop" className={linkClass} onClick={close}>Tienda</NavLink>
-
-      {isAuthenticated && (
+      {/* Público / cliente */}
+      {(!isAuthenticated || isClient) && (
         <>
-          <NavLink to="/pets" className={linkClass} onClick={close}>Mascotas</NavLink>
+          <NavLink to="/" className={linkClass} end onClick={close}>Inicio</NavLink>
+          <NavLink to="/courses" className={linkClass} onClick={close}>Cursos</NavLink>
+          <NavLink to="/shop" className={linkClass} onClick={close}>Tienda</NavLink>
+        </>
+      )}
+
+      {isClient && (
+        <>
+          <NavLink to="/pets" className={linkClass} onClick={close}>Mis mascotas</NavLink>
           <NavLink to="/appointments" className={linkClass} onClick={close}>Citas</NavLink>
           <NavLink to="/history" className={linkClass} onClick={close}>Historial</NavLink>
         </>
       )}
 
-      {isAdmin && <NavLink to="/admin" className={linkClass} onClick={close}>Admin</NavLink>}
+      {/* Veterinario */}
+      {isVet && (
+        <>
+          <NavLink to="/vet/agenda" className={linkClass} onClick={close}>Agenda</NavLink>
+          <NavLink to="/vet/pets" className={linkClass} onClick={close}>Mascotas</NavLink>
+          <NavLink to="/vet/slots" className={linkClass} onClick={close}>Horarios</NavLink>
+        </>
+      )}
 
-      <NavLink to="/cart" className={linkClass} onClick={close}>
-        🛒{count > 0 && <span className="ml-1 text-xs bg-brand text-white rounded-full px-1.5">{count}</span>}
-      </NavLink>
+      {/* Administrador */}
+      {isAdmin && (
+        <NavLink to="/admin" className={linkClass} onClick={close}>Admin</NavLink>
+      )}
+
+      {(!isAuthenticated || isClient) && (
+        <NavLink to="/cart" className={linkClass} onClick={close}>
+          🛒{count > 0 && <span className="ml-1 text-xs bg-brand text-white rounded-full px-1.5">{count}</span>}
+        </NavLink>
+      )}
 
       {isAuthenticated ? (
         <>
@@ -62,10 +81,11 @@ export default function Navbar() {
   );
 
   return (
-    <nav className="bg-white border-b border-slate-200 sticky top-0 z-20">
-      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
-        <Link to="/" className="text-xl font-bold text-brand-dark" onClick={close}>
-          🐾 PetGrooming
+    <nav className="bg-white/95 backdrop-blur border-b border-slate-100 shadow-sm sticky top-0 z-20">
+      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
+        <Link to="/" className="flex items-center gap-2 text-xl font-extrabold text-brand-dark" onClick={close}>
+          <span className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center text-lg shadow-sm">🐾</span>
+          PetGrooming
         </Link>
 
         {/* Menú de escritorio (oculto en móvil) */}

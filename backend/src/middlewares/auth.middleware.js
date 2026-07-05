@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
 
-// Valida el JWT que viaja en la cookie httpOnly "token".
+// Valida el access token JWT que viaja en la cookie httpOnly "accessToken".
 // Si es válido, adjunta { id, role } a req.user.
+// Cuando expira (15 min), responde 401 y el frontend pide /auth/refresh.
 export const authRequired = (req, res, next) => {
-  const token = req.cookies?.token;
+  const token = req.cookies?.accessToken;
 
   if (!token) {
     return res.status(401).json({ message: 'No autenticado' });

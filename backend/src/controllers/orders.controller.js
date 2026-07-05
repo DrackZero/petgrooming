@@ -43,7 +43,7 @@ export const listOrders = async (req, res, next) => {
 export const createOrder = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { items } = req.body;
+    const { items, payment_method, shipping_address } = req.body;
     if (!Array.isArray(items) || !items.length) {
       return res.status(400).json({ message: 'El carrito está vacío' });
     }
@@ -69,8 +69,9 @@ export const createOrder = async (req, res, next) => {
     }
 
     const orderRes = await client.query(
-      'INSERT INTO orders (user_id, total) VALUES ($1, $2) RETURNING *',
-      [req.user.id, total]
+      `INSERT INTO orders (user_id, total, payment_method, shipping_address)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.user.id, total, payment_method || null, shipping_address || null]
     );
     const order = orderRes.rows[0];
 

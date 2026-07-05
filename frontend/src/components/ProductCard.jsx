@@ -1,25 +1,33 @@
 export default function ProductCard({ product, onAdd }) {
   return (
-    <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-      <div className="h-40 bg-slate-100 flex items-center justify-center">
+    <div className="group bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
+      <div className="h-44 bg-brand-50 flex items-center justify-center overflow-hidden">
         {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="h-full w-full object-cover group-hover:scale-105 transition"
+          />
         ) : (
-          <span className="text-4xl">📦</span>
+          <span className="text-5xl">🦴</span>
         )}
       </div>
       <div className="p-4 flex-1 flex flex-col">
-        <h3 className="font-semibold">{product.name}</h3>
-        {product.category && <p className="text-xs text-slate-400">{product.category}</p>}
-        <p className="text-sm text-slate-600 mt-1 flex-1">{product.description}</p>
+        {product.category && (
+          <span className="self-start text-[11px] font-semibold uppercase tracking-wide text-brand-dark bg-brand-50 rounded-full px-2 py-0.5 mb-1">
+            {product.category}
+          </span>
+        )}
+        <h3 className="font-bold text-slate-800">{product.name}</h3>
+        <p className="text-sm text-slate-500 mt-1 flex-1 line-clamp-2">{product.description}</p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="font-bold text-brand-dark">${product.price}</span>
+          <span className="text-lg font-extrabold text-brand-dark">${Number(product.price).toFixed(2)}</span>
           <button
             onClick={() => onAdd?.(product)}
             disabled={product.stock <= 0}
-            className="text-sm px-3 py-1 rounded bg-brand text-white hover:bg-brand-dark disabled:bg-slate-300"
+            className="text-sm font-semibold px-4 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark disabled:bg-slate-200 disabled:text-slate-400 transition"
           >
-            {product.stock > 0 ? 'Añadir' : 'Sin stock'}
+            {product.stock > 0 ? 'Añadir' : 'Agotado'}
           </button>
         </div>
       </div>

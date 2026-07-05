@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom';
 import { getStats } from '../../api/admin.js';
 
 const cards = [
-  { to: '/admin/products', label: 'Productos', icon: '📦' },
+  { to: '/admin/products', label: 'Productos y stock', icon: '📦' },
   { to: '/admin/courses', label: 'Cursos', icon: '🎓' },
-  { to: '/admin/slots', label: 'Horarios', icon: '🕐' },
-  { to: '/admin/appointments', label: 'Citas', icon: '📅' },
-  { to: '/admin/orders', label: 'Pedidos', icon: '🛒' },
-  { to: '/admin/clients', label: 'Clientes', icon: '👥' },
+  { to: '/admin/clients', label: 'Clientes y roles', icon: '👥' },
+  { to: '/admin/orders', label: 'Alertas de pedidos', icon: '🛒' },
   { to: '/admin/reports', label: 'Reportes', icon: '📊' },
 ];
 
@@ -19,7 +17,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Panel de administración</h1>
+      <h1 className="text-2xl font-bold mb-1">Panel de administración</h1>
+      <p className="text-sm text-slate-500 mb-4">
+        La gestión de mascotas, horarios y citas corresponde al veterinario.
+      </p>
 
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -30,7 +31,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((c) => (
           <Link key={c.to} to={c.to} className="bg-white border border-slate-200 rounded-lg p-6 text-center hover:shadow-md transition">
             <div className="text-3xl">{c.icon}</div>

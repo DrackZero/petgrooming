@@ -1,7 +1,18 @@
 import { query } from '../config/db.js';
 
-// GET /api/pets  → mascotas del usuario autenticado
-export const listPets = async (req, res, next) => {
+// Verifica si el usuario puede ver una mascota:
+// el veterinario puede ver todas; el cliente, solo las suyas.
+const canAccessPet = async (user, petId) => {
+  const { rows } = await query('SELECT owner_id FROM pets WHERE id = $1', [petId]);
+  if (!rows.length) return false;
+  if (user.role === 'veterinario') return true;
+  return rows[0].owner_id === user.id;
+};
+
+// ─── CLIENTE (solo lectura) ─────────────────────────────────
+
+// GET /api/pets  → mascotas del cliente autenticado
+export const listMyPets = async (req, res, next) => {
   try {
     const { rows } = await query(
       'SELECT * FROM pets WHERE owner_id = $1 ORDER BY created_at DESC',
@@ -13,31 +24,105 @@ export const listPets = async (req, res, next) => {
   }
 };
 
-// GET /api/pets/:id
+// GET /api/pets/:id  → detalle (cliente dueño o veterinario)
 export const getPet = async (req, res, next) => {
   try {
-    const { rows } = await query(
-      'SELECT * FROM pets WHERE id = $1 AND owner_id = $2',
-      [req.params.id, req.user.id]
-    );
-    if (!rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
+    if (!(await canAccessPet(req.user, req.params.id))) {
+      return res.status(404).json({ message: 'Mascota no encontrada' });
+    }
+    const { rows } = await query('SELECT * FROM pets WHERE id = $1', [req.params.id]);
     res.json(rows[0]);
   } catch (err) {
     next(err);
   }
 };
 
-// POST /api/pets
-export const createPet = async (req, res, next) => {
+// GET /api/pets/:id/history  → vacunas + citas (solo lectura)
+export const getPetHistory = async (req, res, next) => {
   try {
-    const { name, species, breed, size, birth_date, notes } = req.body;
-    if (!name || !species) {
-      return res.status(400).json({ message: 'Nombre y especie son obligatorios' });
+    if (!(await canAccessPet(req.user, req.params.id))) {
+      return res.status(404).json({ message: 'Mascota no encontrada' });
+    }
+    const vaccines = await query(
+      'SELECT * FROM vaccines WHERE pet_id = $1 ORDER BY applied_date DESC',
+      [req.params.id]
+    );
+    const appointments = await query(
+      `SELECT a.id, a.status, sl.starts_at
+       FROM appointments a
+       JOIN availability_slots sl ON sl.id = a.slot_id
+       WHERE a.pet_id = $1
+       ORDER BY sl.starts_at DESC`,
+      [req.params.id]
+    );
+    res.json({ vaccines: vaccines.rows, appointments: appointments.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/pets/:id/vaccines  → vacunas de una mascota
+export const listVaccines = async (req, res, next) => {
+  try {
+    if (!(await canAccessPet(req.user, req.params.id))) {
+      return res.status(404).json({ message: 'Mascota no encontrada' });
     }
     const { rows } = await query(
-      `INSERT INTO pets (owner_id, name, species, breed, size, birth_date, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [req.user.id, name, species, breed || null, size || null, birth_date || null, notes || null]
+      'SELECT * FROM vaccines WHERE pet_id = $1 ORDER BY applied_date DESC',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── VETERINARIO (gestión) ──────────────────────────────────
+
+// GET /api/pets/clients  → clientes activos (para asociar dueño)
+export const listClientsForVet = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, name, email FROM users
+       WHERE role = 'cliente' AND is_active = true
+       ORDER BY name ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/pets/all  → todas las mascotas con su dueño
+export const listAllPets = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT p.*, u.name AS owner_name, u.email AS owner_email
+       FROM pets p JOIN users u ON u.id = p.owner_id
+       ORDER BY p.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/pets  → registrar mascota para un cliente
+export const createPet = async (req, res, next) => {
+  try {
+    const { owner_id, name, species, breed, age, notes } = req.body;
+    if (!owner_id || !name) {
+      return res.status(400).json({ message: 'owner_id y nombre son obligatorios' });
+    }
+    // Verifica que el dueño exista y sea cliente.
+    const owner = await query("SELECT id FROM users WHERE id = $1 AND role = 'cliente'", [owner_id]);
+    if (!owner.rows.length) {
+      return res.status(404).json({ message: 'El cliente dueño no existe' });
+    }
+    const { rows } = await query(
+      `INSERT INTO pets (owner_id, name, species, breed, age, notes)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [owner_id, name, species || null, breed || null, age || null, notes || null]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -45,14 +130,14 @@ export const createPet = async (req, res, next) => {
   }
 };
 
-// PUT /api/pets/:id
+// PUT /api/pets/:id  → editar mascota
 export const updatePet = async (req, res, next) => {
   try {
-    const { name, species, breed, size, birth_date, notes } = req.body;
+    const { name, species, breed, age, notes } = req.body;
     const { rows } = await query(
-      `UPDATE pets SET name=$1, species=$2, breed=$3, size=$4, birth_date=$5, notes=$6
-       WHERE id=$7 AND owner_id=$8 RETURNING *`,
-      [name, species, breed, size, birth_date, notes, req.params.id, req.user.id]
+      `UPDATE pets SET name=$1, species=$2, breed=$3, age=$4, notes=$5
+       WHERE id=$6 RETURNING *`,
+      [name, species, breed, age, notes, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
     res.json(rows[0]);
@@ -61,15 +146,35 @@ export const updatePet = async (req, res, next) => {
   }
 };
 
-// DELETE /api/pets/:id
-export const deletePet = async (req, res, next) => {
+// POST /api/pets/:id/vaccines  → registrar vacuna
+export const addVaccine = async (req, res, next) => {
+  try {
+    const { name, applied_date, notes } = req.body;
+    if (!name) return res.status(400).json({ message: 'El nombre de la vacuna es obligatorio' });
+
+    const pet = await query('SELECT id FROM pets WHERE id = $1', [req.params.id]);
+    if (!pet.rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
+
+    const { rows } = await query(
+      `INSERT INTO vaccines (pet_id, name, applied_date, notes)
+       VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4) RETURNING *`,
+      [req.params.id, name, applied_date || null, notes || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/pets/:id/vaccines/:vid  → eliminar vacuna
+export const deleteVaccine = async (req, res, next) => {
   try {
     const { rowCount } = await query(
-      'DELETE FROM pets WHERE id = $1 AND owner_id = $2',
-      [req.params.id, req.user.id]
+      'DELETE FROM vaccines WHERE id = $1 AND pet_id = $2',
+      [req.params.vid, req.params.id]
     );
-    if (!rowCount) return res.status(404).json({ message: 'Mascota no encontrada' });
-    res.json({ message: 'Mascota eliminada' });
+    if (!rowCount) return res.status(404).json({ message: 'Vacuna no encontrada' });
+    res.json({ message: 'Vacuna eliminada' });
   } catch (err) {
     next(err);
   }

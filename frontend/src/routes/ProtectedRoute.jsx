@@ -1,10 +1,11 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 
-// Bloquea rutas según sesión y, opcionalmente, rol de administrador.
-// Uso: <ProtectedRoute adminOnly><Dashboard/></ProtectedRoute>
-export default function ProtectedRoute({ children, adminOnly = false }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+// Bloquea rutas según sesión y rol.
+// Uso: <ProtectedRoute roles={['veterinario']}><VetAgenda/></ProtectedRoute>
+// Sin "roles" solo exige sesión activa.
+export default function ProtectedRoute({ children, roles }) {
+  const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -15,7 +16,7 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (adminOnly && !isAdmin) {
+  if (roles && !roles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

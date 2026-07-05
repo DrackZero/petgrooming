@@ -1,8 +1,14 @@
-// Restringe el acceso a usuarios con rol 'admin'.
+// Restringe el acceso según el rol del usuario autenticado.
 // Debe usarse SIEMPRE después de authRequired.
-export const adminOnly = (req, res, next) => {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ message: 'Acceso solo para administradores' });
+
+// Fábrica genérica: requireRole('veterinario', 'admin')
+export const requireRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user?.role)) {
+    return res.status(403).json({ message: 'No tienes permiso para esta acción' });
   }
   next();
 };
+
+export const adminOnly = requireRole('admin');
+export const vetOnly = requireRole('veterinario');
+export const staffOnly = requireRole('veterinario', 'admin'); // personal interno

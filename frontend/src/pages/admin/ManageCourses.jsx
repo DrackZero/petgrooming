@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCourses } from '../../api/courses.js';
 import { createCourse } from '../../api/admin.js';
 
-const empty = { title: '', description: '', price: '', capacity: '', starts_at: '', image_url: '' };
+const empty = { title: '', description: '', price: '', duration: '', capacity: '', starts_at: '', image_url: '' };
 
 export default function ManageCourses() {
   const [courses, setCourses] = useState([]);
@@ -32,6 +32,7 @@ export default function ManageCourses() {
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 grid sm:grid-cols-2 gap-3 mb-6">
         <input name="title" placeholder="Título" required className="border rounded p-2 sm:col-span-2" value={form.title} onChange={handleChange} />
         <input name="price" type="number" step="0.01" placeholder="Precio" required className="border rounded p-2" value={form.price} onChange={handleChange} />
+        <input name="duration" placeholder="Duración (ej. 8 semanas)" className="border rounded p-2" value={form.duration} onChange={handleChange} />
         <input name="capacity" type="number" placeholder="Cupos" required className="border rounded p-2" value={form.capacity} onChange={handleChange} />
         <input name="starts_at" type="datetime-local" className="border rounded p-2" value={form.starts_at} onChange={handleChange} />
         <input name="image_url" placeholder="URL imagen" className="border rounded p-2" value={form.image_url} onChange={handleChange} />

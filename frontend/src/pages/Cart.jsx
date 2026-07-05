@@ -10,13 +10,20 @@ export default function Cart() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [msg, setMsg] = useState('');
+  const [checkout, setCheckout] = useState({ payment_method: 'tarjeta', shipping_address: '' });
 
   const handleCheckout = async () => {
     if (!isAuthenticated) return navigate('/login');
+    if (!checkout.shipping_address.trim()) {
+      return setMsg('Ingresa la dirección de envío para continuar');
+    }
     try {
-      await createOrder(items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })));
+      await createOrder({
+        items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+        ...checkout,
+      });
       clearCart();
-      setMsg('¡Pedido realizado con éxito!');
+      setMsg('¡Pedido realizado con éxito! Recibirás la confirmación por correo.');
     } catch (err) {
       setMsg(err.response?.data?.message || 'Error al procesar el pedido');
     }
@@ -28,9 +35,9 @@ export default function Cart() {
       <Notification type="info" message={msg} onClose={() => setMsg('')} />
 
       {items.length === 0 ? (
-        <p className="text-slate-500">Tu carrito está vacío.</p>
+        <p className="text-slate-500 mt-3">Tu carrito está vacío.</p>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-lg divide-y">
+        <div className="bg-white border border-slate-200 rounded-lg divide-y mt-3">
           {items.map((i) => (
             <div key={i.product_id} className="p-4 flex items-center justify-between">
               <div>
@@ -49,6 +56,32 @@ export default function Cart() {
               </div>
             </div>
           ))}
+
+          {/* Datos de pago y envío */}
+          <div className="p-4 grid sm:grid-cols-2 gap-3">
+            <label className="text-sm">
+              Método de pago
+              <select
+                value={checkout.payment_method}
+                onChange={(e) => setCheckout({ ...checkout, payment_method: e.target.value })}
+                className="border rounded p-2 w-full mt-1"
+              >
+                <option value="tarjeta">Tarjeta</option>
+                <option value="pse">PSE</option>
+                <option value="nequi">Nequi</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              Dirección de envío
+              <input
+                value={checkout.shipping_address}
+                onChange={(e) => setCheckout({ ...checkout, shipping_address: e.target.value })}
+                placeholder="Calle 123 #45-67, Yopal"
+                className="border rounded p-2 w-full mt-1"
+              />
+            </label>
+          </div>
+
           <div className="p-4 flex items-center justify-between">
             <span className="font-bold text-lg">Total: ${total.toFixed(2)}</span>
             <button onClick={handleCheckout} className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">

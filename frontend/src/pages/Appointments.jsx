@@ -9,12 +9,12 @@ import { getPets } from '../api/pets.js';
 import AppointmentForm from '../components/AppointmentForm.jsx';
 import Notification from '../components/Notification.jsx';
 
-// Servicios fijos de ejemplo (en producción vendrían de /api/services).
-const SERVICES = [
-  { id: 1, name: 'Baño básico', price: 25 },
-  { id: 2, name: 'Corte completo', price: 40 },
-  { id: 3, name: 'Corte de uñas', price: 10 },
-];
+const statusStyle = {
+  pendiente: 'bg-amber-50 text-amber-700',
+  confirmada: 'bg-emerald-50 text-emerald-700',
+  completada: 'bg-sky-50 text-sky-700',
+  cancelada: 'bg-red-50 text-red-600',
+};
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([]);
@@ -33,12 +33,17 @@ export default function Appointments() {
   }, []);
 
   const handleSubmit = async (form) => {
-    await createAppointment(form);
-    setMsg('Cita reservada ✓');
-    load();
+    try {
+      await createAppointment(form);
+      setMsg('Cita reservada ✓ Queda pendiente de confirmación por el veterinario.');
+      load();
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'No fue posible reservar la cita');
+    }
   };
 
   const handleCancel = async (id) => {
+    if (!confirm('¿Cancelar esta cita?')) return;
     await cancelAppointment(id);
     load();
   };
@@ -47,8 +52,10 @@ export default function Appointments() {
     <div className="grid lg:grid-cols-2 gap-6">
       <div>
         <h1 className="text-2xl font-bold mb-4">Reservar cita</h1>
-        <Notification type="success" message={msg} onClose={() => setMsg('')} />
-        <AppointmentForm pets={pets} services={SERVICES} slots={slots} onSubmit={handleSubmit} />
+        <Notification type="info" message={msg} onClose={() => setMsg('')} />
+        <div className="mt-3">
+          <AppointmentForm pets={pets} slots={slots} onSubmit={handleSubmit} />
+        </div>
       </div>
 
       <div>
@@ -57,11 +64,13 @@ export default function Appointments() {
           {appointments.map((a) => (
             <div key={a.id} className="bg-white border border-slate-200 rounded-lg p-4 flex justify-between items-center">
               <div>
-                <p className="font-medium">{a.pet_name} · {a.service_name}</p>
+                <p className="font-medium">{a.pet_name}</p>
                 <p className="text-sm text-slate-500">{new Date(a.starts_at).toLocaleString('es-ES')}</p>
-                <span className="text-xs px-2 py-0.5 rounded bg-slate-100 capitalize">{a.status}</span>
+                <span className={`text-xs px-2 py-0.5 rounded capitalize ${statusStyle[a.status] || 'bg-slate-100'}`}>
+                  {a.status}
+                </span>
               </div>
-              {a.status !== 'cancelled' && (
+              {!['cancelada', 'completada'].includes(a.status) && (
                 <button onClick={() => handleCancel(a.id)} className="text-sm text-red-600 hover:underline">
                   Cancelar
                 </button>
