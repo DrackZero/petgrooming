@@ -48,7 +48,7 @@ export const getPetHistory = async (req, res, next) => {
       [req.params.id]
     );
     const appointments = await query(
-      `SELECT a.id, a.status, sl.starts_at
+      `SELECT a.id, a.status, a.notes, sl.starts_at
        FROM appointments a
        JOIN availability_slots sl ON sl.id = a.slot_id
        WHERE a.pet_id = $1

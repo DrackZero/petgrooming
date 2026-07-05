@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAllPets, getClientsForVet, createPet, addVaccine } from '../../api/pets.js';
+import { getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory } from '../../api/pets.js';
 import Notification from '../../components/Notification.jsx';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
@@ -11,6 +11,8 @@ export default function VetPets() {
   const [form, setForm] = useState(emptyPet);
   const [vaccineFor, setVaccineFor] = useState(null); // mascota a la que se añade vacuna
   const [vaccine, setVaccine] = useState({ name: '', applied_date: '' });
+  const [historyFor, setHistoryFor] = useState(null); // mascota cuyo historial se muestra
+  const [history, setHistory] = useState(null);
   const [msg, setMsg] = useState('');
 
   const load = () => getAllPets().then(setPets).catch(() => {});
@@ -32,6 +34,18 @@ export default function VetPets() {
     } catch (err) {
       setMsg(err.response?.data?.message || 'Error al registrar la mascota');
     }
+  };
+
+  const showHistory = async (pet) => {
+    if (historyFor?.id === pet.id) { setHistoryFor(null); setHistory(null); return; }
+    setHistoryFor(pet);
+    setHistory(await getPetHistory(pet.id).catch(() => null));
+  };
+
+  const removeVaccine = async (vaccineId) => {
+    if (!confirm('¿Eliminar esta vacuna del historial?')) return;
+    await deleteVaccine(historyFor.id, vaccineId).catch(() => {});
+    setHistory(await getPetHistory(historyFor.id).catch(() => null));
   };
 
   const handleVaccine = async (e) => {
@@ -88,9 +102,12 @@ export default function VetPets() {
                 <td className="p-3">{p.species || '—'}{p.breed ? ` / ${p.breed}` : ''}</td>
                 <td className="p-3">{p.age != null ? `${p.age} años` : '—'}</td>
                 <td className="p-3">{p.owner_name}</td>
-                <td className="p-3 text-right">
+                <td className="p-3 text-right space-x-3 whitespace-nowrap">
                   <button onClick={() => setVaccineFor(p)} className="text-brand-dark hover:underline">
                     💉 Vacuna
+                  </button>
+                  <button onClick={() => showHistory(p)} className="text-brand-dark hover:underline">
+                    📋 Historial
                   </button>
                 </td>
               </tr>
@@ -113,6 +130,69 @@ export default function VetPets() {
             <button type="button" onClick={() => setVaccineFor(null)} className="px-3 rounded bg-slate-100 hover:bg-slate-200">✕</button>
           </div>
         </form>
+      )}
+
+      {/* Historial clínico de la mascota seleccionada */}
+      {historyFor && (
+        <div className="bg-white border border-brand-200 rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">
+              📋 Historial clínico — <span className="text-brand-dark">{historyFor.name}</span>
+              <span className="text-slate-400 font-normal text-sm"> ({historyFor.owner_name})</span>
+            </h2>
+            <button onClick={() => { setHistoryFor(null); setHistory(null); }} className="px-2 rounded bg-slate-100 hover:bg-slate-200">✕</button>
+          </div>
+
+          {historyFor.notes && (
+            <p className="text-sm bg-amber-50 text-amber-800 rounded-lg px-3 py-2 mb-3">
+              ⚠️ Notas clínicas: {historyFor.notes}
+            </p>
+          )}
+
+          {!history ? (
+            <p className="text-slate-400 text-sm">Cargando…</p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <h4 className="font-medium mb-2">💉 Vacunas ({history.vaccines.length})</h4>
+                {history.vaccines.length ? (
+                  <ul className="space-y-1.5">
+                    {history.vaccines.map((v) => (
+                      <li key={v.id} className="flex items-start justify-between gap-2 text-slate-600">
+                        <span>
+                          {v.name} — {new Date(v.applied_date).toLocaleDateString('es-ES')}
+                          {v.notes && <span className="block text-xs text-slate-400">{v.notes}</span>}
+                        </span>
+                        <button onClick={() => removeVaccine(v.id)} className="text-red-500 text-xs hover:underline shrink-0">
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400">Sin vacunas registradas.</p>
+                )}
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">📅 Consultas ({history.appointments.length})</h4>
+                {history.appointments.length ? (
+                  <ul className="space-y-2">
+                    {history.appointments.map((a) => (
+                      <li key={a.id} className="text-slate-600">
+                        {new Date(a.starts_at).toLocaleString('es-ES')} — <span className="capitalize">{a.status}</span>
+                        {a.notes && (
+                          <p className="mt-0.5 text-xs bg-brand-50 rounded-lg px-2 py-1">📋 {a.notes}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400">Sin consultas registradas.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

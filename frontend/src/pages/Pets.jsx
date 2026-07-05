@@ -70,11 +70,16 @@ export default function Pets() {
                 <div>
                   <h4 className="font-medium mb-1">📅 Citas</h4>
                   {history[p.id]?.appointments?.length ? (
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                       {history[p.id].appointments.map((a) => (
                         <li key={a.id} className="text-slate-600">
                           {new Date(a.starts_at).toLocaleString('es-ES')} —{' '}
                           <span className="capitalize">{a.status}</span>
+                          {a.notes && (
+                            <p className="mt-0.5 text-xs bg-brand-50 text-slate-600 rounded-lg px-2 py-1">
+                              📋 {a.notes}
+                            </p>
+                          )}
                         </li>
                       ))}
                     </ul>
