@@ -13,6 +13,7 @@ import Courses from './pages/Courses.jsx';
 import Shop from './pages/Shop.jsx';
 import Cart from './pages/Cart.jsx';
 import History from './pages/History.jsx';
+import PaymentResult from './pages/PaymentResult.jsx';
 
 // Panel del veterinario
 import VetAgenda from './pages/vet/VetAgenda.jsx';
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/courses" element={<Courses />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/payment-result" element={<PaymentResult />} />
 
           {/* Cualquier usuario autenticado */}
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

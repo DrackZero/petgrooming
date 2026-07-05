@@ -1,5 +1,11 @@
 import pool, { query } from '../config/db.js';
-import { createPaymentIntent } from '../services/payment.service.js';
+import {
+  wompiEnabled,
+  buildCheckout,
+  verifyEventChecksum,
+  mockPayment,
+} from '../services/payment.service.js';
+import { sendEmail } from '../services/email.service.js';
 
 // GET /api/orders/products  → catálogo de la tienda
 export const listProducts = async (req, res, next) => {
@@ -90,11 +96,10 @@ export const createOrder = async (req, res, next) => {
 
     await client.query('COMMIT');
 
-    // Intención de pago (simulada por defecto).
-    const payment = await createPaymentIntent({
-      amount: Math.round(total * 100),
-      metadata: { orderId: order.id, userId: req.user.id },
-    });
+    // Datos de pago: Wompi Web Checkout si hay llaves; simulado si no.
+    const payment = wompiEnabled()
+      ? buildCheckout(order.id, total)
+      : mockPayment(order.id, total);
 
     res.status(201).json({ order, payment });
   } catch (err) {
@@ -102,5 +107,65 @@ export const createOrder = async (req, res, next) => {
     next(err);
   } finally {
     client.release();
+  }
+};
+
+// POST /api/orders/webhook  → eventos de Wompi (público, validado por checksum)
+// Wompi llama aquí cuando una transacción cambia de estado (UC-32).
+export const wompiWebhook = async (req, res, next) => {
+  try {
+    const event = req.body || {};
+
+    if (!verifyEventChecksum(event)) {
+      return res.status(403).json({ message: 'Firma de evento inválida' });
+    }
+
+    const tx = event.data?.transaction;
+    if (event.event === 'transaction.updated' && tx?.reference?.startsWith('PG-')) {
+      const orderId = Number(tx.reference.split('-')[1]);
+      const statusMap = { APPROVED: 'aprobado', DECLINED: 'rechazado', VOIDED: 'fallido', ERROR: 'fallido' };
+      const payStatus = statusMap[tx.status] || 'pendiente';
+
+      // Registra (o actualiza) el resultado de la transacción para auditoría.
+      await query(
+        `INSERT INTO payments (order_id, transaction_id, amount, status)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (order_id) DO UPDATE
+           SET transaction_id = EXCLUDED.transaction_id, status = EXCLUDED.status`,
+        [orderId, tx.id, (tx.amount_in_cents || 0) / 100, payStatus]
+      );
+
+      // Pago aprobado → la orden pasa a 'pagada' y se notifica al cliente.
+      if (tx.status === 'APPROVED') {
+        const o = await query(
+          `UPDATE orders SET status = 'pagada'
+           WHERE id = $1 AND status = 'pendiente'
+           RETURNING user_id, total`,
+          [orderId]
+        );
+        if (o.rows.length) {
+          const { user_id, total } = o.rows[0];
+          await query(
+            `INSERT INTO notifications (user_id, type, status) VALUES ($1, 'pedido', 'enviada')`,
+            [user_id]
+          );
+          const u = await query('SELECT email, name FROM users WHERE id = $1', [user_id]);
+          if (u.rows.length) {
+            sendEmail({
+              to: u.rows[0].email,
+              subject: `Pago confirmado — pedido #${orderId} 🐾`,
+              html: `<h2>¡Gracias por tu compra, ${u.rows[0].name}!</h2>
+                     <p>Tu pago del pedido <strong>#${orderId}</strong> por <strong>$${Number(total).toFixed(2)}</strong> fue aprobado.</p>
+                     <p>Pronto prepararemos tu envío. — PetGrooming</p>`,
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // Siempre 200 rápido: Wompi reintenta si no recibe respuesta.
+    res.json({ received: true });
+  } catch (err) {
+    next(err);
   }
 };

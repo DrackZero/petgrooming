@@ -18,12 +18,29 @@ export default function Cart() {
       return setMsg('Ingresa la dirección de envío para continuar');
     }
     try {
-      await createOrder({
+      const res = await createOrder({
         items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
         ...checkout,
       });
+
+      // Con Wompi configurado: redirige al checkout seguro de la pasarela.
+      if (res.payment?.provider === 'wompi') {
+        const p = res.payment;
+        const redirect = encodeURIComponent(`${window.location.origin}/payment-result`);
+        const url =
+          `${p.checkoutBase}?public-key=${encodeURIComponent(p.publicKey)}` +
+          `&currency=${p.currency}&amount-in-cents=${p.amountInCents}` +
+          `&reference=${encodeURIComponent(p.reference)}` +
+          `&signature%3Aintegrity=${p.integritySignature}` +
+          `&redirect-url=${redirect}`;
+        clearCart();
+        window.location.href = url;
+        return;
+      }
+
+      // Modo simulado (sin llaves de Wompi).
       clearCart();
-      setMsg('¡Pedido realizado con éxito! Recibirás la confirmación por correo.');
+      setMsg('¡Pedido registrado! (pago en modo simulado — pendiente de confirmación)');
     } catch (err) {
       setMsg(err.response?.data?.message || 'Error al procesar el pedido');
     }
