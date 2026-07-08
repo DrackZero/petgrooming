@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAllOrders } from '../../api/admin.js';
+import { formatCOP } from '../../utils/format.js';
 
 const statusStyle = {
   pendiente: 'bg-amber-50 text-amber-700',
@@ -36,7 +37,7 @@ export default function ManageOrders() {
               <tr key={o.id} className="border-t">
                 <td className="p-3">{o.id}</td>
                 <td className="p-3">{o.client_name}</td>
-                <td className="p-3">${Number(o.total).toFixed(2)}</td>
+                <td className="p-3">{formatCOP(o.total)}</td>
                 <td className="p-3 capitalize">{o.payment_method || '—'}</td>
                 <td className="p-3">{new Date(o.created_at).toLocaleDateString('es-ES')}</td>
                 <td className="p-3">

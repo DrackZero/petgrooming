@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getStats } from '../../api/admin.js';
+import { formatCOP } from '../../utils/format.js';
 
 const cards = [
   { to: '/admin/products', label: 'Productos y stock', icon: '📦' },
@@ -27,7 +28,7 @@ export default function Dashboard() {
           <Stat label="Clientes" value={stats.clients} />
           <Stat label="Citas" value={stats.appointments} />
           <Stat label="Pedidos" value={stats.orders} />
-          <Stat label="Ingresos" value={`$${Number(stats.revenue).toFixed(2)}`} />
+          <Stat label="Ingresos" value={formatCOP(stats.revenue)} />
         </div>
       )}
 

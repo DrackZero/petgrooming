@@ -4,6 +4,7 @@ import { useCart } from '../hooks/useCart.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { createOrder } from '../api/orders.js';
 import Notification from '../components/Notification.jsx';
+import { formatCOP } from '../utils/format.js';
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
@@ -59,7 +60,7 @@ export default function Cart() {
             <div key={i.product_id} className="p-4 flex items-center justify-between">
               <div>
                 <p className="font-medium">{i.name}</p>
-                <p className="text-sm text-slate-500">${i.price} c/u</p>
+                <p className="text-sm text-slate-500">{formatCOP(i.price)} c/u</p>
               </div>
               <div className="flex items-center gap-3">
                 <input
@@ -100,7 +101,7 @@ export default function Cart() {
           </div>
 
           <div className="p-4 flex items-center justify-between">
-            <span className="font-bold text-lg">Total: ${total.toFixed(2)}</span>
+            <span className="font-bold text-lg">Total: {formatCOP(total)}</span>
             <button onClick={handleCheckout} className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">
               Finalizar compra
             </button>

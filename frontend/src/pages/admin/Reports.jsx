@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getStats } from '../../api/admin.js';
+import { formatCOP } from '../../utils/format.js';
 
 export default function Reports() {
   const [stats, setStats] = useState(null);
@@ -12,7 +13,7 @@ export default function Reports() {
     { label: 'Clientes registrados', value: stats.clients },
     { label: 'Citas totales', value: stats.appointments },
     { label: 'Pedidos totales', value: stats.orders },
-    { label: 'Ingresos (pagados)', value: `$${Number(stats.revenue).toFixed(2)}` },
+    { label: 'Ingresos (pagados)', value: formatCOP(stats.revenue) },
   ];
 
   return (

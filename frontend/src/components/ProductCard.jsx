@@ -1,3 +1,5 @@
+import { formatCOP } from '../utils/format.js';
+
 export default function ProductCard({ product, onAdd }) {
   return (
     <div className="group bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
@@ -21,7 +23,7 @@ export default function ProductCard({ product, onAdd }) {
         <h3 className="font-bold text-slate-800">{product.name}</h3>
         <p className="text-sm text-slate-500 mt-1 flex-1 line-clamp-2">{product.description}</p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-lg font-extrabold text-brand-dark">${Number(product.price).toFixed(2)}</span>
+          <span className="text-lg font-extrabold text-brand-dark">{formatCOP(product.price)}</span>
           <button
             onClick={() => onAdd?.(product)}
             disabled={product.stock <= 0}

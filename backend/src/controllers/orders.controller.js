@@ -155,7 +155,7 @@ export const wompiWebhook = async (req, res, next) => {
               to: u.rows[0].email,
               subject: `Pago confirmado — pedido #${orderId} 🐾`,
               html: `<h2>¡Gracias por tu compra, ${u.rows[0].name}!</h2>
-                     <p>Tu pago del pedido <strong>#${orderId}</strong> por <strong>$${Number(total).toFixed(2)}</strong> fue aprobado.</p>
+                     <p>Tu pago del pedido <strong>#${orderId}</strong> por <strong>$ ${Number(total).toLocaleString('es-CO')} COP</strong> fue aprobado.</p>
                      <p>Pronto prepararemos tu envío. — PetGrooming</p>`,
             }).catch(() => {});
           }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getOrders } from '../api/orders.js';
 import { getMyEnrollments } from '../api/courses.js';
+import { formatCOP } from '../utils/format.js';
 
 export default function History() {
   const [orders, setOrders] = useState([]);
@@ -23,7 +24,7 @@ export default function History() {
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-100 capitalize">{o.status}</span>
               </div>
               <p className="text-sm text-slate-500">{new Date(o.created_at).toLocaleDateString('es-ES')}</p>
-              <p className="font-bold mt-1">${Number(o.total).toFixed(2)}</p>
+              <p className="font-bold mt-1">{formatCOP(o.total)}</p>
             </div>
           ))}
           {orders.length === 0 && <p className="text-slate-500">Sin pedidos.</p>}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCourses } from '../../api/courses.js';
 import { createCourse } from '../../api/admin.js';
+import { formatCOP } from '../../utils/format.js';
 
 const empty = { title: '', description: '', price: '', duration: '', capacity: '', starts_at: '', image_url: '' };
 
@@ -44,7 +45,7 @@ export default function ManageCourses() {
         {courses.map((c) => (
           <div key={c.id} className="bg-white border border-slate-200 rounded-lg p-4">
             <h3 className="font-semibold">{c.title}</h3>
-            <p className="text-sm text-slate-500">${c.price} · {c.capacity} cupos</p>
+            <p className="text-sm text-slate-500">{formatCOP(c.price)} · {c.capacity} cupos</p>
           </div>
         ))}
       </div>

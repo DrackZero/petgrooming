@@ -1,3 +1,5 @@
+import { formatCOP } from '../utils/format.js';
+
 export default function CourseCard({ course, onEnroll, enrolled }) {
   return (
     <div className="group bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
@@ -24,7 +26,7 @@ export default function CourseCard({ course, onEnroll, enrolled }) {
         </div>
         <p className="text-sm text-slate-500 mt-2 flex-1 line-clamp-2">{course.description}</p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-lg font-extrabold text-brand-dark">${Number(course.price).toFixed(2)}</span>
+          <span className="text-lg font-extrabold text-brand-dark">{formatCOP(course.price)}</span>
           <button
             onClick={() => onEnroll?.(course)}
             disabled={enrolled}

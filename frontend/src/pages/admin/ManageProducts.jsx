@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getProducts } from '../../api/orders.js';
 import { createProduct, deleteProduct } from '../../api/admin.js';
+import { formatCOP } from '../../utils/format.js';
 
 const empty = { name: '', description: '', price: '', stock: '', category: '', image_url: '' };
 
@@ -48,7 +49,7 @@ export default function ManageProducts() {
           {products.map((p) => (
             <tr key={p.id} className="border-t">
               <td className="p-3">{p.name}</td>
-              <td className="p-3">${p.price}</td>
+              <td className="p-3">{formatCOP(p.price)}</td>
               <td className="p-3">{p.stock}</td>
               <td className="p-3 text-right">
                 <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:underline">Desactivar</button>
