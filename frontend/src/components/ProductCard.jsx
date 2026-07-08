@@ -1,9 +1,17 @@
+import { useState } from 'react';
 import { formatCOP } from '../utils/format.js';
+import ImageLightbox from './ImageLightbox.jsx';
 
 export default function ProductCard({ product, onAdd }) {
+  const [showFull, setShowFull] = useState(false);
+
   return (
     <div className="group bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
-      <div className="h-44 bg-brand-50 flex items-center justify-center overflow-hidden">
+      <div
+        className={`h-44 bg-brand-50 flex items-center justify-center overflow-hidden ${product.image_url ? 'cursor-zoom-in' : ''}`}
+        onClick={() => product.image_url && setShowFull(true)}
+        title={product.image_url ? 'Ver imagen completa' : undefined}
+      >
         {product.image_url ? (
           <img
             src={product.image_url}
@@ -33,6 +41,10 @@ export default function ProductCard({ product, onAdd }) {
           </button>
         </div>
       </div>
+
+      {showFull && (
+        <ImageLightbox src={product.image_url} alt={product.name} onClose={() => setShowFull(false)} />
+      )}
     </div>
   );
 }

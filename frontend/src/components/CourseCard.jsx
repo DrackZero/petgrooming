@@ -1,9 +1,17 @@
+import { useState } from 'react';
 import { formatCOP } from '../utils/format.js';
+import ImageLightbox from './ImageLightbox.jsx';
 
 export default function CourseCard({ course, onEnroll, enrolled }) {
+  const [showFull, setShowFull] = useState(false);
+
   return (
     <div className="group bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition flex flex-col">
-      <div className="h-44 bg-brand-50 flex items-center justify-center overflow-hidden">
+      <div
+        className={`h-44 bg-brand-50 flex items-center justify-center overflow-hidden ${course.image_url ? 'cursor-zoom-in' : ''}`}
+        onClick={() => course.image_url && setShowFull(true)}
+        title={course.image_url ? 'Ver imagen completa' : undefined}
+      >
         {course.image_url ? (
           <img
             src={course.image_url}
@@ -36,6 +44,10 @@ export default function CourseCard({ course, onEnroll, enrolled }) {
           </button>
         </div>
       </div>
+
+      {showFull && (
+        <ImageLightbox src={course.image_url} alt={course.title} onClose={() => setShowFull(false)} />
+      )}
     </div>
   );
 }
