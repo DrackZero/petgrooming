@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 // Visor de imagen a pantalla completa (lightbox).
 // Cierra con clic en el fondo, la ✕ o la tecla Escape.
+// Se renderiza con un Portal en <body>: si viviera dentro de la tarjeta,
+// el transform del hover la convertiría en su contenedor y rompería
+// el position:fixed (parpadeo/encajonamiento).
 export default function ImageLightbox({ src, alt, onClose }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
@@ -11,7 +15,7 @@ export default function ImageLightbox({ src, alt, onClose }) {
 
   if (!src) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 cursor-zoom-out"
       onClick={onClose}
@@ -34,6 +38,7 @@ export default function ImageLightbox({ src, alt, onClose }) {
           {alt}
         </p>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
