@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { createOrder } from '../api/orders.js';
 import Notification from '../components/Notification.jsx';
 import { formatCOP } from '../utils/format.js';
+import { wompiCheckoutUrl } from '../utils/wompi.js';
 
 export default function Cart() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCart();
@@ -26,16 +27,8 @@ export default function Cart() {
 
       // Con Wompi configurado: redirige al checkout seguro de la pasarela.
       if (res.payment?.provider === 'wompi') {
-        const p = res.payment;
-        const redirect = encodeURIComponent(`${window.location.origin}/payment-result`);
-        const url =
-          `${p.checkoutBase}?public-key=${encodeURIComponent(p.publicKey)}` +
-          `&currency=${p.currency}&amount-in-cents=${p.amountInCents}` +
-          `&reference=${encodeURIComponent(p.reference)}` +
-          `&signature%3Aintegrity=${p.integritySignature}` +
-          `&redirect-url=${redirect}`;
         clearCart();
-        window.location.href = url;
+        window.location.href = wompiCheckoutUrl(res.payment);
         return;
       }
 

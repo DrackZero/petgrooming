@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { expireStaleOrders } from './orders.controller.js';
 
 // ─── Reportes / Dashboard ───────────────────────────────────
 // GET /api/admin/stats
@@ -154,6 +155,7 @@ export const updateCourse = async (req, res, next) => {
 // ─── Pedidos (alertas, solo lectura) ────────────────────────
 export const listAllOrders = async (req, res, next) => {
   try {
+    await expireStaleOrders().catch(() => {}); // limpia pendientes vencidos
     const { rows } = await query(
       `SELECT o.*, u.name AS client_name, u.email
        FROM orders o JOIN users u ON u.id = o.user_id

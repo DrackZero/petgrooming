@@ -3,6 +3,7 @@ import {
   listProducts,
   listOrders,
   createOrder,
+  payOrder,
   wompiWebhook,
 } from '../controllers/orders.controller.js';
 import { authRequired } from '../middlewares/auth.middleware.js';
@@ -14,5 +15,6 @@ router.post('/webhook', wompiWebhook); // eventos de Wompi (público, checksum)
 
 router.get('/', authRequired, listOrders);
 router.post('/', authRequired, createOrder);
+router.get('/:id/pay', authRequired, payOrder); // reintentar pago pendiente
 
 export default router;

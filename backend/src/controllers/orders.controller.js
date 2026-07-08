@@ -7,6 +7,42 @@ import {
 } from '../services/payment.service.js';
 import { sendEmail } from '../services/email.service.js';
 
+// Sistema antiabandono: un pedido 'pendiente' que no se paga en N minutos
+// se cancela automáticamente y su stock vuelve al inventario.
+const pendingTTL = () => Number(process.env.ORDER_PENDING_TTL_MIN || 30);
+
+export const expireStaleOrders = async () => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE orders SET status = 'cancelada'
+       WHERE status = 'pendiente'
+         AND created_at < now() - ($1 || ' minutes')::interval
+       RETURNING id`,
+      [pendingTTL()]
+    );
+    if (rows.length) {
+      const ids = rows.map((r) => r.id);
+      await client.query(
+        `UPDATE products p SET stock = p.stock + oi.qty
+         FROM (SELECT product_id, SUM(quantity) AS qty
+               FROM order_items WHERE order_id = ANY($1::int[])
+               GROUP BY product_id) oi
+         WHERE p.id = oi.product_id`,
+        [ids]
+      );
+    }
+    await client.query('COMMIT');
+    return rows.length;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 // GET /api/orders/products  → catálogo de la tienda
 export const listProducts = async (req, res, next) => {
   try {
@@ -22,6 +58,7 @@ export const listProducts = async (req, res, next) => {
 // GET /api/orders  → historial de pedidos del usuario
 export const listOrders = async (req, res, next) => {
   try {
+    await expireStaleOrders(); // limpia pendientes vencidos antes de listar
     const { rows } = await query(
       `SELECT o.*,
               json_agg(json_build_object(
@@ -47,6 +84,7 @@ export const listOrders = async (req, res, next) => {
 // POST /api/orders  → crea un pedido a partir del carrito
 // body: { items: [{ product_id, quantity }] }
 export const createOrder = async (req, res, next) => {
+  await expireStaleOrders().catch(() => {}); // libera stock retenido por abandonos
   const client = await pool.connect();
   try {
     const { items, payment_method, shipping_address } = req.body;
@@ -110,6 +148,27 @@ export const createOrder = async (req, res, next) => {
   }
 };
 
+// GET /api/orders/:id/pay  → reintentar el pago de un pedido pendiente
+export const payOrder = async (req, res, next) => {
+  try {
+    await expireStaleOrders().catch(() => {});
+    const { rows } = await query(
+      'SELECT id, total, status FROM orders WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Pedido no encontrado' });
+    if (rows[0].status !== 'pendiente') {
+      return res.status(409).json({ message: `El pedido ya no está pendiente (${rows[0].status})` });
+    }
+    const payment = wompiEnabled()
+      ? buildCheckout(rows[0].id, rows[0].total)
+      : mockPayment(rows[0].id, rows[0].total);
+    res.json({ payment });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // POST /api/orders/webhook  → eventos de Wompi (público, validado por checksum)
 // Wompi llama aquí cuando una transacción cambia de estado (UC-32).
 export const wompiWebhook = async (req, res, next) => {
@@ -137,14 +196,25 @@ export const wompiWebhook = async (req, res, next) => {
 
       // Pago aprobado → la orden pasa a 'pagada' y se notifica al cliente.
       if (tx.status === 'APPROVED') {
-        const o = await query(
-          `UPDATE orders SET status = 'pagada'
-           WHERE id = $1 AND status = 'pendiente'
-           RETURNING user_id, total`,
-          [orderId]
-        );
-        if (o.rows.length) {
-          const { user_id, total } = o.rows[0];
+        const cur = await query('SELECT status, user_id, total FROM orders WHERE id = $1', [orderId]);
+        const prev = cur.rows[0];
+        if (prev && ['pendiente', 'cancelada'].includes(prev.status)) {
+          await query(`UPDATE orders SET status = 'pagada' WHERE id = $1`, [orderId]);
+
+          // Caso límite: expiró por abandono pero el pago sí llegó →
+          // se reactiva y se vuelve a descontar el stock que se había devuelto.
+          if (prev.status === 'cancelada') {
+            await query(
+              `UPDATE products p SET stock = GREATEST(p.stock - oi.qty, 0)
+               FROM (SELECT product_id, SUM(quantity) AS qty
+                     FROM order_items WHERE order_id = $1
+                     GROUP BY product_id) oi
+               WHERE p.id = oi.product_id`,
+              [orderId]
+            );
+          }
+
+          const { user_id, total } = prev;
           await query(
             `INSERT INTO notifications (user_id, type, status) VALUES ($1, 'pedido', 'enviada')`,
             [user_id]
