@@ -4,6 +4,7 @@ import Footer from './components/Footer.jsx';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 
 // Páginas públicas / cliente
+import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Profile from './pages/Profile.jsx';
@@ -35,7 +36,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-6 w-full flex-1">
         <Routes>
           {/* Públicas */}
-          <Route path="/" element={<Shop />} />
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/courses" element={<Courses />} />

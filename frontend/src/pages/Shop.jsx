@@ -1,15 +1,23 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import { getProducts } from '../api/orders.js';
 import { useCart } from '../hooks/useCart.js';
-import { useAuth } from '../hooks/useAuth.js';
 import ProductCard from '../components/ProductCard.jsx';
 import Notification from '../components/Notification.jsx';
 
+const SORTS = [
+  { value: 'recientes', label: 'Más recientes' },
+  { value: 'precio_asc', label: 'Precio: menor a mayor' },
+  { value: 'precio_desc', label: 'Precio: mayor a menor' },
+  { value: 'nombre', label: 'Nombre A-Z' },
+];
+
+// TIENDA completa: búsqueda, filtro por categoría y ordenamiento.
 export default function Shop() {
   const { addItem } = useCart();
-  const { isClient, isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('todas');
+  const [sort, setSort] = useState('recientes');
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
@@ -21,57 +29,112 @@ export default function Shop() {
     setMsg(`"${product.name}" añadido al carrito`);
   };
 
+  // Categorías únicas presentes en el catálogo.
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))],
+    [products]
+  );
+
+  // Aplica búsqueda + categoría + orden.
+  const visible = useMemo(() => {
+    let list = products;
+
+    if (category !== 'todas') {
+      list = list.filter((p) => p.category === category);
+    }
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    const sorted = [...list];
+    if (sort === 'precio_asc') sorted.sort((a, b) => a.price - b.price);
+    if (sort === 'precio_desc') sorted.sort((a, b) => b.price - a.price);
+    if (sort === 'nombre') sorted.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    // 'recientes' conserva el orden del backend (created_at DESC)
+    return sorted;
+  }, [products, category, search, sort]);
+
   return (
     <div>
-      {/* Hero de bienvenida */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-50 via-brand-100 to-brand-50 border border-brand-100 px-6 py-10 sm:px-10 sm:py-14 mb-8">
-        {/* Blobs decorativos */}
-        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-brand-200/50" aria-hidden="true" />
-        <div className="absolute -bottom-10 right-24 w-24 h-24 rounded-full bg-accent/30" aria-hidden="true" />
-        <div className="absolute top-6 right-40 w-4 h-4 rounded-full bg-brand-300/60 hidden sm:block" aria-hidden="true" />
-
-        <div className="relative max-w-xl">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-brand-900 leading-tight">
-            Todo para tu mejor amigo 🐶🐱
-          </h1>
-          <p className="mt-3 text-slate-600">
-            Peluquería, cuidado veterinario, cursos y los mejores productos para tu mascota — en un solo lugar.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            {isClient || !isAuthenticated ? (
-              <>
-                <Link
-                  to={isAuthenticated ? '/appointments' : '/login'}
-                  className="px-5 py-2.5 rounded-full bg-brand text-white font-semibold shadow-sm hover:bg-brand-dark transition"
-                >
-                  Agendar cita
-                </Link>
-                <Link
-                  to="/courses"
-                  className="px-5 py-2.5 rounded-full bg-white text-brand-dark font-semibold border border-brand-200 hover:bg-brand-50 transition"
-                >
-                  Ver cursos
-                </Link>
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        <span className="absolute bottom-4 right-6 text-7xl sm:text-8xl select-none" aria-hidden="true">🐕</span>
-      </section>
-
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="page-title">Tienda</h2>
-        <span className="text-sm text-slate-400">{products.length} producto{products.length !== 1 && 's'}</span>
-      </div>
+      <h1 className="page-title mb-1">Tienda</h1>
+      <p className="text-sm text-slate-500 mb-5">
+        Alimento, juguetes, higiene y accesorios para tu mascota.
+      </p>
       <Notification type="success" message={msg} onClose={() => setMsg('')} />
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
-        {products.map((p) => (
+      {/* Barra de búsqueda y orden */}
+      <div className="flex flex-col sm:flex-row gap-3 mt-3 mb-4">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar producto…"
+            className="w-full border border-slate-200 rounded-full py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-300"
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="border border-slate-200 rounded-full py-2.5 px-4 bg-white text-sm"
+        >
+          {SORTS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Chips de categorías */}
+      {categories.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setCategory('todas')}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition ${
+              category === 'todas'
+                ? 'bg-brand text-white border-brand'
+                : 'bg-white text-slate-500 border-slate-200 hover:border-brand-300'
+            }`}
+          >
+            Todas
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold border capitalize transition ${
+                category === c
+                  ? 'bg-brand text-white border-brand'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-brand-300'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Resultados */}
+      <p className="text-sm text-slate-400 mb-3">
+        {visible.length} resultado{visible.length !== 1 && 's'}
+        {search && ` para "${search}"`}
+      </p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {visible.map((p) => (
           <ProductCard key={p.id} product={p} onAdd={handleAdd} />
         ))}
-        {products.length === 0 && (
-          <p className="text-slate-500 col-span-full">No hay productos disponibles por el momento.</p>
+        {visible.length === 0 && (
+          <div className="col-span-full text-center py-12 text-slate-500">
+            <span className="text-4xl block mb-2">🐾</span>
+            {products.length === 0
+              ? 'No hay productos disponibles por el momento.'
+              : 'Ningún producto coincide con tu búsqueda.'}
+          </div>
         )}
       </div>
     </div>
