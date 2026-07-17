@@ -6,6 +6,9 @@ export const getStats = () => api.get('/admin/stats').then((r) => r.data);
 // Usuarios y roles
 export const getUsers = () => api.get('/admin/users').then((r) => r.data);
 export const assignVetRole = (id) => api.patch(`/admin/users/${id}/vet`).then((r) => r.data);
+export const getVetRequests = () => api.get('/admin/vet-requests').then((r) => r.data);
+export const rejectVetRequest = (id) =>
+  api.patch(`/admin/vet-requests/${id}/reject`).then((r) => r.data);
 
 // Clientes
 export const getClients = () => api.get('/admin/clients').then((r) => r.data);

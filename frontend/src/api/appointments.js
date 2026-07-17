@@ -2,7 +2,8 @@ import api from './client.js';
 
 // ─── Cliente ───
 export const getAppointments = () => api.get('/appointments').then((r) => r.data);
-export const getAvailableSlots = () => api.get('/appointments/slots').then((r) => r.data);
+export const getAvailableSlots = (params) =>
+  api.get('/appointments/slots', { params }).then((r) => r.data);
 export const createAppointment = (data) => api.post('/appointments', data).then((r) => r.data);
 export const rescheduleAppointment = (id, slot_id) =>
   api.patch(`/appointments/${id}/reschedule`, { slot_id }).then((r) => r.data);

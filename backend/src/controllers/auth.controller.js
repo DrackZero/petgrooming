@@ -50,7 +50,7 @@ const sendSession = async (res, user, status = 200) => {
 // POST /api/auth/register  → crea cuenta con rol 'cliente'
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, wants_vet } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Nombre, email y password son obligatorios' });
     }
@@ -61,11 +61,13 @@ export const register = async (req, res, next) => {
     }
 
     const password_hash = await hashPassword(password);
+    // wants_vet: el usuario solicita el rol de veterinario; entra como
+    // cliente y el administrador aprueba o rechaza la solicitud (UC-24).
     const { rows } = await query(
-      `INSERT INTO users (name, email, password_hash, phone)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (name, email, password_hash, phone, vet_requested)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id, name, email, phone, role`,
-      [name, email, password_hash, phone || null]
+      [name, email, password_hash, phone || null, Boolean(wants_vet)]
     );
 
     await sendSession(res, rows[0], 201);

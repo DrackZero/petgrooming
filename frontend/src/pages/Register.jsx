@@ -6,7 +6,7 @@ import Notification from '../components/Notification.jsx';
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', wants_vet: false });
   const [error, setError] = useState('');
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -35,6 +35,25 @@ export default function Register() {
         <input name="email" type="email" placeholder="Email" required className="w-full border rounded p-2" value={form.email} onChange={handleChange} />
         <input name="phone" placeholder="Teléfono (opcional)" className="w-full border rounded p-2" value={form.phone} onChange={handleChange} />
         <input name="password" type="password" placeholder="Contraseña" required className="w-full border rounded p-2" value={form.password} onChange={handleChange} />
+
+        <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.wants_vet}
+            onChange={(e) => setForm({ ...form, wants_vet: e.target.checked })}
+            className="mt-0.5 accent-brand"
+          />
+          <span>
+            Soy veterinario/a y quiero atender en la plataforma
+            {form.wants_vet && (
+              <span className="block text-xs text-amber-600 mt-1">
+                Tu solicitud quedará pendiente de aprobación del administrador.
+                Mientras tanto tendrás una cuenta de cliente.
+              </span>
+            )}
+          </span>
+        </label>
+
         <button className="w-full bg-brand text-white rounded-full py-2.5 font-semibold hover:bg-brand-dark transition">Registrarme</button>
       </form>
       <p className="text-sm text-slate-500 mt-3">

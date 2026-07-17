@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getStats,
   listUsers, assignVetRole,
+  listVetRequests, rejectVetRequest,
   listClients, setClientActive,
   createProduct, updateProduct, deleteProduct,
   createCourse, updateCourse,
@@ -20,6 +21,8 @@ router.get('/stats', getStats);
 // Usuarios y roles
 router.get('/users', listUsers);
 router.patch('/users/:id/vet', assignVetRole);
+router.get('/vet-requests', listVetRequests);
+router.patch('/vet-requests/:id/reject', rejectVetRequest);
 
 // Clientes
 router.get('/clients', listClients);

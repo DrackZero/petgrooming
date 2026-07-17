@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { getClients, setClientActive, assignVetRole } from '../../api/admin.js';
+import {
+  getClients,
+  setClientActive,
+  assignVetRole,
+  getVetRequests,
+  rejectVetRequest,
+} from '../../api/admin.js';
 import Notification from '../../components/Notification.jsx';
 
 export default function ManageClients() {
   const [clients, setClients] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [msg, setMsg] = useState('');
 
-  const load = () => getClients().then(setClients).catch(() => {});
+  const load = () => {
+    getClients().then(setClients).catch(() => {});
+    getVetRequests().then(setRequests).catch(() => {});
+  };
   useEffect(() => { load(); }, []);
 
   const toggleActive = async (c) => {
@@ -25,10 +35,51 @@ export default function ManageClients() {
     }
   };
 
+  const rejectRequest = async (u) => {
+    await rejectVetRequest(u.id).catch(() => {});
+    setMsg(`Solicitud de ${u.name} rechazada`);
+    load();
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Clientes y roles</h1>
       <Notification type="success" message={msg} onClose={() => setMsg('')} />
+
+      {/* Solicitudes pendientes de rol veterinario */}
+      {requests.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 my-4">
+          <h2 className="font-bold text-amber-800 mb-3">
+            🩺 Solicitudes para ser veterinario ({requests.length})
+          </h2>
+          <div className="space-y-2">
+            {requests.map((u) => (
+              <div key={u.id} className="bg-white rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{u.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {u.email} · solicitó el {new Date(u.created_at).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => makeVet(u)}
+                    className="text-sm font-semibold px-4 py-1.5 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                  >
+                    ✓ Aprobar
+                  </button>
+                  <button
+                    onClick={() => rejectRequest(u)}
+                    className="text-sm font-semibold px-4 py-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition"
+                  >
+                    ✕ Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto mt-3">
         <table className="w-full min-w-[640px] bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">

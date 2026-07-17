@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getStats } from '../../api/admin.js';
+import { getStats, getVetRequests } from '../../api/admin.js';
 import { formatCOP } from '../../utils/format.js';
 
 const cards = [
@@ -13,8 +13,12 @@ const cards = [
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
+  const [vetRequests, setVetRequests] = useState([]);
 
-  useEffect(() => { getStats().then(setStats).catch(() => {}); }, []);
+  useEffect(() => {
+    getStats().then(setStats).catch(() => {});
+    getVetRequests().then(setVetRequests).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -22,6 +26,19 @@ export default function Dashboard() {
       <p className="text-sm text-slate-500 mb-4">
         La gestión de mascotas, horarios y citas corresponde al veterinario.
       </p>
+
+      {/* Notificación: solicitudes de rol veterinario pendientes */}
+      {vetRequests.length > 0 && (
+        <Link
+          to="/admin/clients"
+          className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 mb-4 hover:bg-amber-100 transition"
+        >
+          <span className="text-2xl">🩺</span>
+          <span className="text-sm font-medium">
+            {vetRequests.length} solicitud{vetRequests.length !== 1 && 'es'} pendiente{vetRequests.length !== 1 && 's'} para ser veterinario — clic para revisar
+          </span>
+        </Link>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

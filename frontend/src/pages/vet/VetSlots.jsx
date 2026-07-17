@@ -31,7 +31,8 @@ export default function VetSlots() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
-  const load = () => getAvailableSlots().then(setSlots).catch(() => {});
+  // mine=1: cada veterinario ve y gestiona solo SUS horarios.
+  const load = () => getAvailableSlots({ mine: 1 }).then(setSlots).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const toggleDay = (value) =>

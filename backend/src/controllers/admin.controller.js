@@ -39,7 +39,7 @@ export const listUsers = async (req, res, next) => {
 export const assignVetRole = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `UPDATE users SET role = 'veterinario'
+      `UPDATE users SET role = 'veterinario', vet_requested = false
        WHERE id = $1 AND role = 'cliente'
        RETURNING id, name, email, role`,
       [req.params.id]
@@ -48,6 +48,36 @@ export const assignVetRole = async (req, res, next) => {
       return res.status(404).json({ message: 'Usuario no encontrado o no es cliente' });
     }
     res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/admin/vet-requests  → solicitudes pendientes de rol veterinario
+export const listVetRequests = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, name, email, created_at FROM users
+       WHERE vet_requested = true AND role = 'cliente'
+       ORDER BY created_at ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/vet-requests/:id/reject  → rechazar la solicitud
+export const rejectVetRequest = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `UPDATE users SET vet_requested = false
+       WHERE id = $1 AND vet_requested = true
+       RETURNING id, name`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Solicitud no encontrada' });
+    res.json({ ...rows[0], message: 'Solicitud rechazada' });
   } catch (err) {
     next(err);
   }

@@ -36,6 +36,7 @@ CREATE TABLE users (
     address       VARCHAR(255),
     role          user_role     NOT NULL DEFAULT 'cliente',
     is_active     BOOLEAN       NOT NULL DEFAULT true,
+    vet_requested BOOLEAN       NOT NULL DEFAULT false, -- solicitud de rol veterinario
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
@@ -71,9 +72,10 @@ CREATE TABLE vaccines (
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 5) AVAILABILITY_SLOTS (horarios definidos por el veterinario)
+-- 5) AVAILABILITY_SLOTS (horarios definidos por cada veterinario)
 CREATE TABLE availability_slots (
     id          SERIAL PRIMARY KEY,
+    vet_id      INTEGER      REFERENCES users(id) ON DELETE CASCADE,
     starts_at   TIMESTAMPTZ  NOT NULL,
     ends_at     TIMESTAMPTZ  NOT NULL,
     is_booked   BOOLEAN      NOT NULL DEFAULT false,
@@ -171,6 +173,7 @@ CREATE TABLE notifications (
 CREATE INDEX idx_refresh_user       ON refresh_tokens(user_id);
 CREATE INDEX idx_pets_owner         ON pets(owner_id);
 CREATE INDEX idx_vaccines_pet       ON vaccines(pet_id);
+CREATE INDEX idx_slots_vet          ON availability_slots(vet_id);
 CREATE INDEX idx_appointments_user  ON appointments(user_id);
 CREATE INDEX idx_appointments_pet   ON appointments(pet_id);
 CREATE INDEX idx_enrollments_user   ON enrollments(user_id);

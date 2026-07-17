@@ -1,33 +1,70 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
-// Formulario para reservar una cita (mascota + horario disponible).
-// props: pets[], slots[], onSubmit({pet_id, slot_id})
+// Formulario para reservar una cita: mascota + veterinario + horario.
+// props: pets[], slots[] (con vet_id/vet_name), onSubmit({pet_id, slot_id})
 export default function AppointmentForm({ pets = [], slots = [], onSubmit }) {
-  const [form, setForm] = useState({ pet_id: '', slot_id: '' });
+  const [form, setForm] = useState({ pet_id: '', vet_id: '', slot_id: '' });
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  // Veterinarios que tienen al menos un horario disponible.
+  const vets = useMemo(() => {
+    const map = new Map();
+    for (const s of slots) {
+      if (s.vet_id && !map.has(s.vet_id)) map.set(s.vet_id, s.vet_name || 'Veterinario/a');
+    }
+    return [...map.entries()].map(([id, name]) => ({ id, name }));
+  }, [slots]);
+
+  // Horarios del veterinario elegido.
+  const vetSlots = form.vet_id
+    ? slots.filter((s) => String(s.vet_id) === String(form.vet_id))
+    : [];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.pet_id || !form.slot_id) return;
-    onSubmit?.(form);
-    setForm({ pet_id: '', slot_id: '' });
+    onSubmit?.({ pet_id: form.pet_id, slot_id: form.slot_id });
+    setForm({ pet_id: '', vet_id: '', slot_id: '' });
   };
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
       <h3 className="font-semibold">Reservar cita</h3>
 
-      <select name="pet_id" value={form.pet_id} onChange={handleChange} className="w-full border rounded p-2" required>
+      <select
+        value={form.pet_id}
+        onChange={(e) => setForm({ ...form, pet_id: e.target.value })}
+        className="w-full border rounded p-2"
+        required
+      >
         <option value="">Selecciona mascota…</option>
         {pets.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>
 
-      <select name="slot_id" value={form.slot_id} onChange={handleChange} className="w-full border rounded p-2" required>
-        <option value="">Selecciona horario…</option>
-        {slots.map((sl) => (
+      <select
+        value={form.vet_id}
+        onChange={(e) => setForm({ ...form, vet_id: e.target.value, slot_id: '' })}
+        className="w-full border rounded p-2"
+        required
+      >
+        <option value="">Selecciona veterinario/a…</option>
+        {vets.map((v) => (
+          <option key={v.id} value={v.id}>🩺 {v.name}</option>
+        ))}
+      </select>
+
+      <select
+        value={form.slot_id}
+        onChange={(e) => setForm({ ...form, slot_id: e.target.value })}
+        className="w-full border rounded p-2 disabled:bg-slate-50 disabled:text-slate-400"
+        disabled={!form.vet_id}
+        required
+      >
+        <option value="">
+          {form.vet_id ? 'Selecciona horario…' : 'Primero elige veterinario/a'}
+        </option>
+        {vetSlots.map((sl) => (
           <option key={sl.id} value={sl.id}>
             {new Date(sl.starts_at).toLocaleString('es-ES')}
           </option>
@@ -39,15 +76,15 @@ export default function AppointmentForm({ pets = [], slots = [], onSubmit }) {
           No tienes mascotas registradas. El veterinario debe registrar tu mascota antes de poder agendar.
         </p>
       )}
-      {slots.length === 0 && (
+      {vets.length === 0 && (
         <p className="text-xs text-amber-600">
-          No hay horarios disponibles por el momento. Intenta más tarde.
+          No hay veterinarios con horarios disponibles por el momento. Intenta más tarde.
         </p>
       )}
 
       <button
         type="submit"
-        disabled={!pets.length || !slots.length}
+        disabled={!pets.length || !vets.length}
         className="w-full bg-brand text-white rounded py-2 hover:bg-brand-dark disabled:bg-slate-300"
       >
         Reservar cita

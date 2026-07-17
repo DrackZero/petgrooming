@@ -66,6 +66,7 @@ export default function Appointments() {
               <div>
                 <p className="font-medium">{a.pet_name}</p>
                 <p className="text-sm text-slate-500">{new Date(a.starts_at).toLocaleString('es-ES')}</p>
+                {a.vet_name && <p className="text-xs text-slate-400">🩺 {a.vet_name}</p>}
                 <span className={`text-xs px-2 py-0.5 rounded capitalize ${statusStyle[a.status] || 'bg-slate-100'}`}>
                   {a.status}
                 </span>

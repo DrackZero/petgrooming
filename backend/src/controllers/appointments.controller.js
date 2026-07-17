@@ -27,10 +27,12 @@ const notifyAppointment = async (appointmentId) => {
 export const listMyAppointments = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT a.*, p.name AS pet_name, sl.starts_at, sl.ends_at
+      `SELECT a.*, p.name AS pet_name, sl.starts_at, sl.ends_at,
+              v.name AS vet_name
        FROM appointments a
        JOIN pets p ON p.id = a.pet_id
        JOIN availability_slots sl ON sl.id = a.slot_id
+       LEFT JOIN users v ON v.id = sl.vet_id
        WHERE a.user_id = $1
        ORDER BY sl.starts_at DESC`,
       [req.user.id]
@@ -41,13 +43,28 @@ export const listMyAppointments = async (req, res, next) => {
   }
 };
 
-// GET /api/appointments/slots  → horarios disponibles
+// GET /api/appointments/slots  → horarios disponibles (con su veterinario)
+// ?vet_id=N filtra por veterinario · ?mine=1 (solo vet) muestra los propios
 export const listAvailableSlots = async (req, res, next) => {
   try {
+    const params = [];
+    let where = 'sl.is_booked = false AND sl.starts_at > now()';
+
+    if (req.query.mine === '1' && req.user.role === 'veterinario') {
+      params.push(req.user.id);
+      where += ` AND sl.vet_id = $${params.length}`;
+    } else if (req.query.vet_id) {
+      params.push(req.query.vet_id);
+      where += ` AND sl.vet_id = $${params.length}`;
+    }
+
     const { rows } = await query(
-      `SELECT * FROM availability_slots
-       WHERE is_booked = false AND starts_at > now()
-       ORDER BY starts_at ASC`
+      `SELECT sl.*, v.name AS vet_name
+       FROM availability_slots sl
+       LEFT JOIN users v ON v.id = sl.vet_id
+       WHERE ${where}
+       ORDER BY sl.starts_at ASC`,
+      params
     );
     res.json(rows);
   } catch (err) {
@@ -142,8 +159,8 @@ export const createSlot = async (req, res, next) => {
       return res.status(400).json({ message: 'starts_at y ends_at son obligatorios' });
     }
     const { rows } = await query(
-      'INSERT INTO availability_slots (starts_at, ends_at) VALUES ($1, $2) RETURNING *',
-      [starts_at, ends_at]
+      'INSERT INTO availability_slots (vet_id, starts_at, ends_at) VALUES ($1, $2, $3) RETURNING *',
+      [req.user.id, starts_at, ends_at]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -187,11 +204,13 @@ export const createSlotsBulk = async (req, res, next) => {
       return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la de fin' });
     }
 
-    // Horarios ya existentes en el rango, para omitir choques (UC-19).
+    // Horarios ya existentes DEL MISMO VETERINARIO en el rango (UC-19):
+    // dos veterinarios sí pueden atender a la misma hora.
     const endPlus = new Date(end.getTime() + 86400000);
     const existing = await query(
-      'SELECT starts_at, ends_at FROM availability_slots WHERE starts_at >= $1 AND starts_at < $2',
-      [start, endPlus]
+      `SELECT starts_at, ends_at FROM availability_slots
+       WHERE vet_id = $3 AND starts_at >= $1 AND starts_at < $2`,
+      [start, endPlus, req.user.id]
     );
     const busy = existing.rows.map((r) => [new Date(r.starts_at), new Date(r.ends_at)]);
 
@@ -217,7 +236,10 @@ export const createSlotsBulk = async (req, res, next) => {
     }
 
     for (const [cs, ce] of candidates) {
-      await query('INSERT INTO availability_slots (starts_at, ends_at) VALUES ($1, $2)', [cs, ce]);
+      await query(
+        'INSERT INTO availability_slots (vet_id, starts_at, ends_at) VALUES ($1, $2, $3)',
+        [req.user.id, cs, ce]
+      );
     }
 
     res.status(201).json({ created: candidates.length, skipped });
@@ -230,17 +252,17 @@ export const createSlotsBulk = async (req, res, next) => {
 export const deleteSlot = async (req, res, next) => {
   try {
     const { rowCount } = await query(
-      'DELETE FROM availability_slots WHERE id = $1 AND is_booked = false',
-      [req.params.id]
+      'DELETE FROM availability_slots WHERE id = $1 AND is_booked = false AND vet_id = $2',
+      [req.params.id, req.user.id]
     );
-    if (!rowCount) return res.status(409).json({ message: 'No existe o ya está reservado' });
+    if (!rowCount) return res.status(409).json({ message: 'No existe, ya está reservado o no es tuyo' });
     res.json({ message: 'Horario eliminado' });
   } catch (err) {
     next(err);
   }
 };
 
-// GET /api/appointments/all  → todas las citas
+// GET /api/appointments/all  → las citas del veterinario autenticado
 export const listAllAppointments = async (req, res, next) => {
   try {
     const { rows } = await query(
@@ -249,7 +271,9 @@ export const listAllAppointments = async (req, res, next) => {
        JOIN users u ON u.id = a.user_id
        JOIN pets p  ON p.id = a.pet_id
        JOIN availability_slots sl ON sl.id = a.slot_id
-       ORDER BY sl.starts_at DESC`
+       WHERE sl.vet_id = $1
+       ORDER BY sl.starts_at DESC`,
+      [req.user.id]
     );
     res.json(rows);
   } catch (err) {
@@ -267,9 +291,9 @@ export const getAgenda = async (req, res, next) => {
        JOIN users u ON u.id = a.user_id
        JOIN pets p  ON p.id = a.pet_id
        JOIN availability_slots sl ON sl.id = a.slot_id
-       WHERE sl.starts_at::date = $1
+       WHERE sl.starts_at::date = $1 AND sl.vet_id = $2
        ORDER BY sl.starts_at ASC`,
-      [date]
+      [date, req.user.id]
     );
     res.json(rows);
   } catch (err) {
@@ -284,8 +308,11 @@ export const vetCreateAppointment = async (req, res, next) => {
     if (!user_id || !pet_id || !slot_id) {
       return res.status(400).json({ message: 'user_id, pet_id y slot_id son obligatorios' });
     }
-    const slot = await query('SELECT id FROM availability_slots WHERE id = $1 AND is_booked = false', [slot_id]);
-    if (!slot.rows.length) return res.status(409).json({ message: 'El horario no está disponible' });
+    const slot = await query(
+      'SELECT id FROM availability_slots WHERE id = $1 AND is_booked = false AND vet_id = $2',
+      [slot_id, req.user.id]
+    );
+    if (!slot.rows.length) return res.status(409).json({ message: 'El horario no está disponible o no es tuyo' });
 
     const { rows } = await query(
       `INSERT INTO appointments (user_id, pet_id, slot_id, status)
@@ -309,9 +336,13 @@ export const updateAppointmentStatus = async (req, res, next) => {
     if (!valid.includes(status)) {
       return res.status(400).json({ message: 'Estado inválido' });
     }
+    // Solo el veterinario dueño del horario puede gestionar la cita.
     const { rows } = await query(
-      'UPDATE appointments SET status = $1, notes = COALESCE($2, notes) WHERE id = $3 RETURNING *',
-      [status, notes || null, req.params.id]
+      `UPDATE appointments a SET status = $1, notes = COALESCE($2, a.notes)
+       FROM availability_slots sl
+       WHERE a.id = $3 AND sl.id = a.slot_id AND sl.vet_id = $4
+       RETURNING a.*`,
+      [status, notes || null, req.params.id, req.user.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Cita no encontrada' });
 
