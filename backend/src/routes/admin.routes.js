@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getStats,
+  getReports,
   listUsers, assignVetRole,
   listVetRequests, rejectVetRequest,
   listClients, setClientActive,
@@ -17,6 +18,7 @@ const router = Router();
 router.use(authRequired, adminOnly);
 
 router.get('/stats', getStats);
+router.get('/reports', getReports);
 
 // Usuarios y roles
 router.get('/users', listUsers);

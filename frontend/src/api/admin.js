@@ -2,6 +2,8 @@ import api from './client.js';
 
 // Estadísticas / reportes
 export const getStats = () => api.get('/admin/stats').then((r) => r.data);
+export const getReports = (params) =>
+  api.get('/admin/reports', { params }).then((r) => r.data);
 
 // Usuarios y roles
 export const getUsers = () => api.get('/admin/users').then((r) => r.data);

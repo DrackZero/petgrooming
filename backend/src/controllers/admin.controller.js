@@ -22,6 +22,91 @@ export const getStats = async (req, res, next) => {
   }
 };
 
+// GET /api/admin/reports?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Reporte del negocio en un rango de fechas (por defecto, últimos 30 días).
+export const getReports = async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const monthAgo = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+    const from = req.query.from || monthAgo;
+    const to = req.query.to || today;
+
+    if (isNaN(new Date(from)) || isNaN(new Date(to)) || from > to) {
+      return res.status(400).json({ message: 'Rango de fechas inválido' });
+    }
+    if ((new Date(to) - new Date(from)) / 86400000 > 366) {
+      return res.status(400).json({ message: 'El rango máximo es de un año' });
+    }
+
+    const PAID = ['pagada', 'enviada', 'entregada'];
+    const p = [from, to];
+
+    const [revenue, orders, paidOrders, apptByStatus, enrollments, newClients, salesByDay, topProducts] =
+      await Promise.all([
+        query(
+          `SELECT COALESCE(SUM(total),0)::numeric AS v FROM orders
+           WHERE status = ANY($3) AND created_at::date BETWEEN $1 AND $2`,
+          [...p, PAID]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS v FROM orders WHERE created_at::date BETWEEN $1 AND $2`, p
+        ),
+        query(
+          `SELECT COUNT(*)::int AS v FROM orders
+           WHERE status = ANY($3) AND created_at::date BETWEEN $1 AND $2`,
+          [...p, PAID]
+        ),
+        query(
+          `SELECT a.status, COUNT(*)::int AS count
+           FROM appointments a
+           JOIN availability_slots sl ON sl.id = a.slot_id
+           WHERE sl.starts_at::date BETWEEN $1 AND $2
+           GROUP BY a.status ORDER BY count DESC`, p
+        ),
+        query(
+          `SELECT COUNT(*)::int AS v FROM enrollments WHERE enrolled_at::date BETWEEN $1 AND $2`, p
+        ),
+        query(
+          `SELECT COUNT(*)::int AS v FROM users
+           WHERE role = 'cliente' AND created_at::date BETWEEN $1 AND $2`, p
+        ),
+        query(
+          `SELECT created_at::date AS day, SUM(total)::numeric AS total
+           FROM orders
+           WHERE status = ANY($3) AND created_at::date BETWEEN $1 AND $2
+           GROUP BY day ORDER BY day ASC`,
+          [...p, PAID]
+        ),
+        query(
+          `SELECT pr.name, SUM(oi.quantity)::int AS units
+           FROM order_items oi
+           JOIN orders o   ON o.id = oi.order_id
+           JOIN products pr ON pr.id = oi.product_id
+           WHERE o.status = ANY($3) AND o.created_at::date BETWEEN $1 AND $2
+           GROUP BY pr.name ORDER BY units DESC LIMIT 5`,
+          [...p, PAID]
+        ),
+      ]);
+
+    res.json({
+      range: { from, to },
+      totals: {
+        revenue: revenue.rows[0].v,
+        orders: orders.rows[0].v,
+        paidOrders: paidOrders.rows[0].v,
+        appointments: apptByStatus.rows.reduce((s, r) => s + r.count, 0),
+        enrollments: enrollments.rows[0].v,
+        newClients: newClients.rows[0].v,
+      },
+      apptByStatus: apptByStatus.rows,
+      salesByDay: salesByDay.rows,
+      topProducts: topProducts.rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Gestión de usuarios / roles ────────────────────────────
 // GET /api/admin/users  → todos los usuarios
 export const listUsers = async (req, res, next) => {
