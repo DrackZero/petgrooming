@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
+import Tooltip from './Tooltip.jsx';
 
 const linkClass = ({ isActive }) =>
-  `px-3 py-2 rounded-full text-sm font-semibold transition ${
+  `max-md:w-full px-3 py-2 rounded-full text-sm font-semibold transition ${
     isActive ? 'bg-brand text-white' : 'text-slate-600 hover:bg-brand-50 hover:text-brand-dark'
   }`;
+
+// Envuelve un enlace del menú con su ayuda contextual.
+const NavTip = ({ tip, children }) => (
+  <Tooltip tip={tip} className="max-md:w-full">{children}</Tooltip>
+);
 
 export default function Navbar() {
   const { isAuthenticated, isAdmin, isVet, isClient, user, logout } = useAuth();
@@ -28,38 +34,60 @@ export default function Navbar() {
       {/* Público / cliente */}
       {(!isAuthenticated || isClient) && (
         <>
-          <NavLink to="/" className={linkClass} end onClick={close}>Inicio</NavLink>
-          <NavLink to="/courses" className={linkClass} onClick={close}>Cursos</NavLink>
-          <NavLink to="/shop" className={linkClass} onClick={close}>Tienda</NavLink>
+          <NavTip tip="Página principal y productos destacados">
+            <NavLink to="/" className={linkClass} end onClick={close}>Inicio</NavLink>
+          </NavTip>
+          <NavTip tip="Cursos sobre el cuidado de tu mascota">
+            <NavLink to="/courses" className={linkClass} onClick={close}>Cursos</NavLink>
+          </NavTip>
+          <NavTip tip="Alimento, juguetes, higiene y accesorios">
+            <NavLink to="/shop" className={linkClass} onClick={close}>Tienda</NavLink>
+          </NavTip>
         </>
       )}
 
       {isClient && (
         <>
-          <NavLink to="/pets" className={linkClass} onClick={close}>Mis mascotas</NavLink>
-          <NavLink to="/appointments" className={linkClass} onClick={close}>Citas</NavLink>
-          <NavLink to="/history" className={linkClass} onClick={close}>Historial</NavLink>
+          <NavTip tip="Consulta tus mascotas y su historial clínico">
+            <NavLink to="/pets" className={linkClass} onClick={close}>Mis mascotas</NavLink>
+          </NavTip>
+          <NavTip tip="Agenda una cita con el veterinario que prefieras">
+            <NavLink to="/appointments" className={linkClass} onClick={close}>Citas</NavLink>
+          </NavTip>
+          <NavTip tip="Tus pedidos e inscripciones a cursos">
+            <NavLink to="/history" className={linkClass} onClick={close}>Historial</NavLink>
+          </NavTip>
         </>
       )}
 
       {/* Veterinario */}
       {isVet && (
         <>
-          <NavLink to="/vet/agenda" className={linkClass} onClick={close}>Agenda</NavLink>
-          <NavLink to="/vet/pets" className={linkClass} onClick={close}>Mascotas</NavLink>
-          <NavLink to="/vet/slots" className={linkClass} onClick={close}>Horarios</NavLink>
+          <NavTip tip="Calendario mensual y citas del día">
+            <NavLink to="/vet/agenda" className={linkClass} onClick={close}>Agenda</NavLink>
+          </NavTip>
+          <NavTip tip="Registra mascotas, vacunas e historial clínico">
+            <NavLink to="/vet/pets" className={linkClass} onClick={close}>Mascotas</NavLink>
+          </NavTip>
+          <NavTip tip="Define tu jornada laboral y franjas de atención">
+            <NavLink to="/vet/slots" className={linkClass} onClick={close}>Horarios</NavLink>
+          </NavTip>
         </>
       )}
 
       {/* Administrador */}
       {isAdmin && (
-        <NavLink to="/admin" className={linkClass} onClick={close}>Admin</NavLink>
+        <NavTip tip="Panel de administración del negocio">
+          <NavLink to="/admin" className={linkClass} onClick={close}>Admin</NavLink>
+        </NavTip>
       )}
 
       {(!isAuthenticated || isClient) && (
-        <NavLink to="/cart" className={linkClass} onClick={close}>
-          🛒{count > 0 && <span className="ml-1 text-xs bg-brand text-white rounded-full px-1.5">{count}</span>}
-        </NavLink>
+        <NavTip tip="Carrito de compras">
+          <NavLink to="/cart" className={linkClass} onClick={close}>
+            🛒{count > 0 && <span className="ml-1 text-xs bg-brand text-white rounded-full px-1.5">{count}</span>}
+          </NavLink>
+        </NavTip>
       )}
 
       {isAuthenticated ? (

@@ -4,6 +4,7 @@ import { getMyEnrollments } from '../api/courses.js';
 import { formatCOP } from '../utils/format.js';
 import { wompiCheckoutUrl } from '../utils/wompi.js';
 import Notification from '../components/Notification.jsx';
+import Tooltip from '../components/Tooltip.jsx';
 
 const statusStyle = {
   pendiente: 'bg-amber-50 text-amber-700',
@@ -56,12 +57,14 @@ export default function History() {
               <div className="flex items-center justify-between mt-1">
                 <p className="font-bold">{formatCOP(o.total)}</p>
                 {o.status === 'pendiente' && (
-                  <button
-                    onClick={() => handlePay(o.id)}
-                    className="text-sm font-semibold px-4 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark transition"
-                  >
-                    💳 Pagar ahora
-                  </button>
+                  <Tooltip tip="Retoma el pago seguro de este pedido en Wompi" side="top">
+                    <button
+                      onClick={() => handlePay(o.id)}
+                      className="text-sm font-semibold px-4 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark transition"
+                    >
+                      💳 Pagar ahora
+                    </button>
+                  </Tooltip>
                 )}
               </div>
               {o.status === 'pendiente' && (

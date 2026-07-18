@@ -9,6 +9,7 @@ import {
   rejectVetRequest,
 } from '../../api/admin.js';
 import Notification from '../../components/Notification.jsx';
+import Tooltip from '../../components/Tooltip.jsx';
 
 export default function ManageClients() {
   const [tab, setTab] = useState('clients'); // 'clients' | 'vets'
@@ -132,12 +133,16 @@ export default function ManageClients() {
                     </span>
                   </td>
                   <td className="p-3 text-right space-x-3 whitespace-nowrap">
-                    <button onClick={() => makeVet(c)} className="text-brand-dark hover:underline">
-                      🩺 Hacer veterinario
-                    </button>
-                    <button onClick={() => toggleClientActive(c)} className={c.is_active ? 'text-red-600 hover:underline' : 'text-emerald-600 hover:underline'}>
-                      {c.is_active ? 'Desactivar' : 'Activar'}
-                    </button>
+                    <Tooltip tip="Convierte esta cuenta de cliente en veterinario" side="top">
+                      <button onClick={() => makeVet(c)} className="text-brand-dark hover:underline">
+                        🩺 Hacer veterinario
+                      </button>
+                    </Tooltip>
+                    <Tooltip tip={c.is_active ? 'Bloquea el inicio de sesión sin borrar su historial' : 'Permite que vuelva a iniciar sesión'} side="top">
+                      <button onClick={() => toggleClientActive(c)} className={c.is_active ? 'text-red-600 hover:underline' : 'text-emerald-600 hover:underline'}>
+                        {c.is_active ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}
@@ -170,9 +175,11 @@ export default function ManageClients() {
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    <button onClick={() => toggleVetActive(v)} className={v.is_active ? 'text-red-600 hover:underline' : 'text-emerald-600 hover:underline'}>
-                      {v.is_active ? 'Desactivar' : 'Activar'}
-                    </button>
+                    <Tooltip tip={v.is_active ? 'Bloquea su acceso; sus citas e historial se conservan' : 'Permite que vuelva a iniciar sesión'} side="top">
+                      <button onClick={() => toggleVetActive(v)} className={v.is_active ? 'text-red-600 hover:underline' : 'text-emerald-600 hover:underline'}>
+                        {v.is_active ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}

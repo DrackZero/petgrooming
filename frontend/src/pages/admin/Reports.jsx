@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getReports } from '../../api/admin.js';
 import { formatCOP } from '../../utils/format.js';
+import Tooltip from '../../components/Tooltip.jsx';
 
 const dayStr = (d) => d.toISOString().slice(0, 10);
 const daysAgo = (n) => dayStr(new Date(Date.now() - n * 86400000));
@@ -68,13 +69,14 @@ export default function Reports() {
         </label>
         <div className="flex gap-2 ml-auto">
           {[7, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => quick(d)}
-              className="px-3 py-1.5 rounded-full text-sm font-semibold border border-slate-200 text-slate-500 hover:border-brand-300 hover:text-brand-dark transition"
-            >
-              {d} días
-            </button>
+            <Tooltip key={d} tip={`Ver los últimos ${d} días`}>
+              <button
+                onClick={() => quick(d)}
+                className="px-3 py-1.5 rounded-full text-sm font-semibold border border-slate-200 text-slate-500 hover:border-brand-300 hover:text-brand-dark transition"
+              >
+                {d} días
+              </button>
+            </Tooltip>
           ))}
         </div>
       </div>

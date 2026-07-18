@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory } from '../../api/pets.js';
 import Notification from '../../components/Notification.jsx';
+import Tooltip from '../../components/Tooltip.jsx';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
 
@@ -103,12 +104,16 @@ export default function VetPets() {
                 <td className="p-3">{p.age != null ? `${p.age} años` : '—'}</td>
                 <td className="p-3">{p.owner_name}</td>
                 <td className="p-3 text-right space-x-3 whitespace-nowrap">
-                  <button onClick={() => setVaccineFor(p)} className="text-brand-dark hover:underline">
-                    💉 Vacuna
-                  </button>
-                  <button onClick={() => showHistory(p)} className="text-brand-dark hover:underline">
-                    📋 Historial
-                  </button>
+                  <Tooltip tip="Registrar una vacuna aplicada a esta mascota" side="top">
+                    <button onClick={() => setVaccineFor(p)} className="text-brand-dark hover:underline">
+                      💉 Vacuna
+                    </button>
+                  </Tooltip>
+                  <Tooltip tip="Ver el historial clínico completo (vacunas y consultas)" side="top">
+                    <button onClick={() => showHistory(p)} className="text-brand-dark hover:underline">
+                      📋 Historial
+                    </button>
+                  </Tooltip>
                 </td>
               </tr>
             ))}
