@@ -281,6 +281,29 @@ export const listAllAppointments = async (req, res, next) => {
   }
 };
 
+// GET /api/appointments/calendar?month=YYYY-MM  → resumen de citas por día del mes
+// (para pintar el calendario mensual del veterinario)
+export const getCalendarSummary = async (req, res, next) => {
+  try {
+    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: 'Formato de mes inválido (YYYY-MM)' });
+    }
+    const { rows } = await query(
+      `SELECT sl.starts_at::date AS day, a.status, COUNT(*)::int AS count
+       FROM appointments a
+       JOIN availability_slots sl ON sl.id = a.slot_id
+       WHERE sl.vet_id = $1 AND to_char(sl.starts_at, 'YYYY-MM') = $2
+       GROUP BY day, a.status
+       ORDER BY day ASC`,
+      [req.user.id, month]
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/appointments/agenda?date=YYYY-MM-DD  → agenda del día
 export const getAgenda = async (req, res, next) => {
   try {

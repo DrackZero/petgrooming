@@ -9,6 +9,7 @@ import {
   createSlotsBulk,
   deleteSlot,
   listAllAppointments,
+  getCalendarSummary,
   getAgenda,
   vetCreateAppointment,
   updateAppointmentStatus,
@@ -22,6 +23,7 @@ router.use(authRequired);
 
 // ─── Veterinario (rutas específicas primero) ───
 router.get('/all', vetOnly, listAllAppointments);
+router.get('/calendar', vetOnly, getCalendarSummary);
 router.get('/agenda', vetOnly, getAgenda);
 router.post('/slots', vetOnly, createSlot);
 router.post('/slots/bulk', vetOnly, createSlotsBulk);

@@ -17,6 +17,8 @@ export const deleteSlot = (id) => api.delete(`/appointments/slots/${id}`).then((
 export const getAllAppointments = () => api.get('/appointments/all').then((r) => r.data);
 export const getAgenda = (date) =>
   api.get('/appointments/agenda', { params: { date } }).then((r) => r.data);
+export const getCalendarSummary = (month) =>
+  api.get('/appointments/calendar', { params: { month } }).then((r) => r.data);
 export const vetCreateAppointment = (data) =>
   api.post('/appointments/vet', data).then((r) => r.data);
 export const updateAppointmentStatus = (id, status, notes) =>
