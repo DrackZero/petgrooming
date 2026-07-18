@@ -5,6 +5,7 @@ import {
   listUsers, assignVetRole,
   listVetRequests, rejectVetRequest,
   listClients, setClientActive,
+  listVets, setVetActive,
   createProduct, updateProduct, deleteProduct,
   createCourse, updateCourse,
   listAllOrders,
@@ -29,6 +30,10 @@ router.patch('/vet-requests/:id/reject', rejectVetRequest);
 // Clientes
 router.get('/clients', listClients);
 router.patch('/clients/:id/active', setClientActive);
+
+// Veterinarios
+router.get('/vets', listVets);
+router.patch('/vets/:id/active', setVetActive);
 
 // Productos
 router.post('/products', createProduct);

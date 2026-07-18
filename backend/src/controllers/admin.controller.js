@@ -182,6 +182,35 @@ export const listClients = async (req, res, next) => {
   }
 };
 
+// GET /api/admin/vets  → veterinarios activos
+export const listVets = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, name, email, phone, is_active, created_at
+       FROM users WHERE role = 'veterinario' ORDER BY created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/vets/:id/active  → activar/desactivar cuenta de veterinario
+export const setVetActive = async (req, res, next) => {
+  try {
+    const { is_active } = req.body;
+    const { rows } = await query(
+      `UPDATE users SET is_active = $1 WHERE id = $2 AND role = 'veterinario'
+       RETURNING id, name, email, is_active`,
+      [is_active !== false, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Veterinario no encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // PATCH /api/admin/clients/:id/active  → activar/desactivar cuenta
 export const setClientActive = async (req, res, next) => {
   try {
