@@ -169,6 +169,24 @@ CREATE TABLE notifications (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
+-- 14) CONVERSATIONS (chat de emergencia cliente-veterinario) ─
+CREATE TABLE conversations (
+    id          SERIAL PRIMARY KEY,
+    client_id   INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vet_id      INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status      VARCHAR(20)  NOT NULL DEFAULT 'abierta', -- abierta|cerrada
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- 15) MESSAGES (mensajes del chat) ──────────────────────────
+CREATE TABLE messages (
+    id               SERIAL PRIMARY KEY,
+    conversation_id  INTEGER     NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id        INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body             TEXT        NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ─── Índices útiles ─────────────────────────────────────────
 CREATE INDEX idx_refresh_user       ON refresh_tokens(user_id);
 CREATE INDEX idx_pets_owner         ON pets(owner_id);
@@ -180,6 +198,9 @@ CREATE INDEX idx_enrollments_user   ON enrollments(user_id);
 CREATE INDEX idx_orders_user        ON orders(user_id);
 CREATE INDEX idx_order_items_order  ON order_items(order_id);
 CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_conversations_client ON conversations(client_id);
+CREATE INDEX idx_conversations_vet    ON conversations(vet_id);
+CREATE INDEX idx_messages_conversation ON messages(conversation_id);
 
 -- ─── Datos semilla ──────────────────────────────────────────
 -- Admin  (admin@petgrooming.com / admin123)

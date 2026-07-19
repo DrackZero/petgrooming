@@ -57,6 +57,9 @@ export default function Navbar() {
           <NavTip tip="Tus pedidos e inscripciones a cursos">
             <NavLink to="/history" className={linkClass} onClick={close}>Historial</NavLink>
           </NavTip>
+          <NavTip tip="Chat de emergencia en vivo con un veterinario">
+            <NavLink to="/chat" className={linkClass} onClick={close}>🚨 Urgencias</NavLink>
+          </NavTip>
         </>
       )}
 
@@ -71,6 +74,9 @@ export default function Navbar() {
           </NavTip>
           <NavTip tip="Define tu jornada laboral y franjas de atención">
             <NavLink to="/vet/slots" className={linkClass} onClick={close}>Horarios</NavLink>
+          </NavTip>
+          <NavTip tip="Emergencias de tus clientes en tiempo real">
+            <NavLink to="/chat" className={linkClass} onClick={close}>🚨 Urgencias</NavLink>
           </NavTip>
         </>
       )}

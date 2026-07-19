@@ -15,6 +15,7 @@ import Shop from './pages/Shop.jsx';
 import Cart from './pages/Cart.jsx';
 import History from './pages/History.jsx';
 import PaymentResult from './pages/PaymentResult.jsx';
+import Chat from './pages/Chat.jsx';
 
 // Panel del veterinario
 import VetAgenda from './pages/vet/VetAgenda.jsx';
@@ -46,6 +47,7 @@ export default function App() {
 
           {/* Cualquier usuario autenticado */}
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/chat" element={<ProtectedRoute roles={['cliente', 'veterinario']}><Chat /></ProtectedRoute>} />
 
           {/* Cliente */}
           <Route path="/pets" element={<ProtectedRoute roles={['cliente']}><Pets /></ProtectedRoute>} />
