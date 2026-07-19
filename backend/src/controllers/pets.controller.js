@@ -1,12 +1,24 @@
 import { query } from '../config/db.js';
 
 // Verifica si el usuario puede ver una mascota:
-// el veterinario puede ver todas; el cliente, solo las suyas.
+// el veterinario puede ver todas (historial portable entre clínicas);
+// el cliente, solo las suyas.
 const canAccessPet = async (user, petId) => {
   const { rows } = await query('SELECT owner_id FROM pets WHERE id = $1', [petId]);
   if (!rows.length) return false;
   if (user.role === 'veterinario') return true;
   return rows[0].owner_id === user.id;
+};
+
+// Auditoría "break-glass": todo acceso de un veterinario a un historial
+// queda registrado (no se bloquea, se audita). Best-effort: no rompe la
+// consulta si el registro falla.
+const logVetAccess = (user, petId) => {
+  if (user.role !== 'veterinario') return;
+  query(
+    'INSERT INTO emergency_access_log (vet_id, pet_id) VALUES ($1, $2)',
+    [user.id, petId]
+  ).catch(() => {});
 };
 
 // ─── CLIENTE (solo lectura) ─────────────────────────────────
@@ -43,8 +55,13 @@ export const getPetHistory = async (req, res, next) => {
     if (!(await canAccessPet(req.user, req.params.id))) {
       return res.status(404).json({ message: 'Mascota no encontrada' });
     }
+    logVetAccess(req.user, req.params.id);
     const vaccines = await query(
-      'SELECT * FROM vaccines WHERE pet_id = $1 ORDER BY applied_date DESC',
+      `SELECT v.*, u.name AS vet_name, c.name AS clinic_name
+       FROM vaccines v
+       LEFT JOIN users u ON u.id = v.vet_id
+       LEFT JOIN clinics c ON c.id = u.clinic_id
+       WHERE v.pet_id = $1 ORDER BY v.applied_date DESC`,
       [req.params.id]
     );
     const appointments = await query(
@@ -67,8 +84,13 @@ export const listVaccines = async (req, res, next) => {
     if (!(await canAccessPet(req.user, req.params.id))) {
       return res.status(404).json({ message: 'Mascota no encontrada' });
     }
+    logVetAccess(req.user, req.params.id);
     const { rows } = await query(
-      'SELECT * FROM vaccines WHERE pet_id = $1 ORDER BY applied_date DESC',
+      `SELECT v.*, u.name AS vet_name, c.name AS clinic_name
+       FROM vaccines v
+       LEFT JOIN users u ON u.id = v.vet_id
+       LEFT JOIN clinics c ON c.id = u.clinic_id
+       WHERE v.pet_id = $1 ORDER BY v.applied_date DESC`,
       [req.params.id]
     );
     res.json(rows);
@@ -156,9 +178,9 @@ export const addVaccine = async (req, res, next) => {
     if (!pet.rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
 
     const { rows } = await query(
-      `INSERT INTO vaccines (pet_id, name, applied_date, notes)
-       VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4) RETURNING *`,
-      [req.params.id, name, applied_date || null, notes || null]
+      `INSERT INTO vaccines (pet_id, vet_id, name, applied_date, notes)
+       VALUES ($1, $2, $3, COALESCE($4, CURRENT_DATE), $5) RETURNING *`,
+      [req.params.id, req.user.id, name, applied_date || null, notes || null]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

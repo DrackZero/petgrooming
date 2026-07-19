@@ -59,9 +59,10 @@ export const listAvailableSlots = async (req, res, next) => {
     }
 
     const { rows } = await query(
-      `SELECT sl.*, v.name AS vet_name
+      `SELECT sl.*, v.name AS vet_name, c.name AS clinic_name
        FROM availability_slots sl
        LEFT JOIN users v ON v.id = sl.vet_id
+       LEFT JOIN clinics c ON c.id = v.clinic_id
        WHERE ${where}
        ORDER BY sl.starts_at ASC`,
       params

@@ -7,6 +7,7 @@ const cards = [
   { to: '/admin/products', label: 'Productos y stock', icon: '📦' },
   { to: '/admin/courses', label: 'Cursos', icon: '🎓' },
   { to: '/admin/clients', label: 'Clientes y roles', icon: '👥' },
+  { to: '/admin/clinics', label: 'Clínicas', icon: '🏥' },
   { to: '/admin/orders', label: 'Alertas de pedidos', icon: '🛒' },
   { to: '/admin/reports', label: 'Reportes', icon: '📊' },
 ];

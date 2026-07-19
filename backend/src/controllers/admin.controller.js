@@ -182,12 +182,89 @@ export const listClients = async (req, res, next) => {
   }
 };
 
-// GET /api/admin/vets  → veterinarios activos
+// GET /api/admin/vets  → veterinarios con su clínica
 export const listVets = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT id, name, email, phone, is_active, created_at
-       FROM users WHERE role = 'veterinario' ORDER BY created_at DESC`
+      `SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at,
+              u.clinic_id, c.name AS clinic_name
+       FROM users u
+       LEFT JOIN clinics c ON c.id = u.clinic_id
+       WHERE u.role = 'veterinario' ORDER BY u.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Clínicas (modelo multi-clínica) ────────────────────────
+
+// GET /api/admin/clinics  → clínicas con conteo de veterinarios
+export const listClinics = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT c.*,
+              (SELECT COUNT(*)::int FROM users u
+               WHERE u.clinic_id = c.id AND u.role = 'veterinario') AS vet_count
+       FROM clinics c ORDER BY c.created_at ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/admin/clinics {name, address, phone}
+export const createClinic = async (req, res, next) => {
+  try {
+    const { name, address, phone } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'El nombre es obligatorio' });
+    const { rows } = await query(
+      `INSERT INTO clinics (name, address, phone) VALUES ($1, $2, $3) RETURNING *`,
+      [name.trim(), address || null, phone || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/vets/:id/clinic {clinic_id}  → asignar clínica a un vet
+export const setVetClinic = async (req, res, next) => {
+  try {
+    const { clinic_id } = req.body;
+    if (clinic_id) {
+      const clinic = await query('SELECT id FROM clinics WHERE id = $1 AND is_active = true', [clinic_id]);
+      if (!clinic.rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
+    }
+    const { rows } = await query(
+      `UPDATE users SET clinic_id = $1
+       WHERE id = $2 AND role = 'veterinario'
+       RETURNING id, name, clinic_id`,
+      [clinic_id || null, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Veterinario no encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/admin/access-log  → auditoría de accesos a historiales
+export const getAccessLog = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT l.id, l.accessed_at,
+              v.name AS vet_name, c.name AS clinic_name,
+              p.name AS pet_name, o.name AS owner_name
+       FROM emergency_access_log l
+       JOIN users v ON v.id = l.vet_id
+       LEFT JOIN clinics c ON c.id = v.clinic_id
+       JOIN pets p ON p.id = l.pet_id
+       JOIN users o ON o.id = p.owner_id
+       ORDER BY l.accessed_at DESC
+       LIMIT 100`
     );
     res.json(rows);
   } catch (err) {

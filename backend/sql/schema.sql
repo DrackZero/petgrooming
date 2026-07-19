@@ -8,6 +8,9 @@
 DROP TABLE IF EXISTS services            CASCADE;
 DROP TABLE IF EXISTS settings            CASCADE;
 DROP TABLE IF EXISTS slots               CASCADE;
+DROP TABLE IF EXISTS emergency_access_log CASCADE;
+DROP TABLE IF EXISTS messages            CASCADE;
+DROP TABLE IF EXISTS conversations       CASCADE;
 DROP TABLE IF EXISTS notifications       CASCADE;
 DROP TABLE IF EXISTS payments            CASCADE;
 DROP TABLE IF EXISTS order_items         CASCADE;
@@ -21,10 +24,21 @@ DROP TABLE IF EXISTS vaccines            CASCADE;
 DROP TABLE IF EXISTS pets                CASCADE;
 DROP TABLE IF EXISTS refresh_tokens      CASCADE;
 DROP TABLE IF EXISTS users               CASCADE;
+DROP TABLE IF EXISTS clinics             CASCADE;
 DROP TYPE  IF EXISTS user_role           CASCADE;
 
 -- ─── Tipos ENUM ─────────────────────────────────────────────
 CREATE TYPE user_role AS ENUM ('cliente', 'veterinario', 'admin');
+
+-- 0) CLINICS (clínicas suscritas a la plataforma) ───────────
+CREATE TABLE clinics (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(160) NOT NULL,
+    address     VARCHAR(255),
+    phone       VARCHAR(30),
+    is_active   BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
 
 -- 1) USERS ──────────────────────────────────────────────────
 CREATE TABLE users (
@@ -37,6 +51,7 @@ CREATE TABLE users (
     role          user_role     NOT NULL DEFAULT 'cliente',
     is_active     BOOLEAN       NOT NULL DEFAULT true,
     vet_requested BOOLEAN       NOT NULL DEFAULT false, -- solicitud de rol veterinario
+    clinic_id     INTEGER       REFERENCES clinics(id) ON DELETE SET NULL, -- clínica del veterinario
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
@@ -66,10 +81,21 @@ CREATE TABLE pets (
 CREATE TABLE vaccines (
     id            SERIAL PRIMARY KEY,
     pet_id        INTEGER      NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+    vet_id        INTEGER      REFERENCES users(id) ON DELETE SET NULL, -- quién la registró
     name          VARCHAR(120) NOT NULL,
     applied_date  DATE         NOT NULL DEFAULT CURRENT_DATE,
     notes         TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- 4b) EMERGENCY_ACCESS_LOG (auditoría de acceso a historiales)
+-- El historial es portable entre clínicas; el acceso no se
+-- bloquea, se registra ("break-glass").
+CREATE TABLE emergency_access_log (
+    id           SERIAL PRIMARY KEY,
+    vet_id       INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pet_id       INTEGER     NOT NULL REFERENCES pets(id)  ON DELETE CASCADE,
+    accessed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 5) AVAILABILITY_SLOTS (horarios definidos por cada veterinario)
@@ -201,8 +227,13 @@ CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_conversations_client ON conversations(client_id);
 CREATE INDEX idx_conversations_vet    ON conversations(vet_id);
 CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX idx_users_clinic   ON users(clinic_id);
+CREATE INDEX idx_access_log_pet ON emergency_access_log(pet_id);
+CREATE INDEX idx_access_log_vet ON emergency_access_log(vet_id);
 
 -- ─── Datos semilla ──────────────────────────────────────────
+INSERT INTO clinics (name, address) VALUES ('PetGrooming Yopal', 'Yopal, Casanare');
+
 -- Admin  (admin@petgrooming.com / admin123)
 -- Vet    (vet@petgrooming.com   / vet123)
 INSERT INTO users (name, email, password_hash, role) VALUES
@@ -211,3 +242,6 @@ INSERT INTO users (name, email, password_hash, role) VALUES
   ('Dra. Veterinaria', 'vet@petgrooming.com',
    '$2a$10$dIhnsz2H06VDYepoHx0Ep.KVDa.jIUmkfKmqwcHIZYagVbjk03bZy', 'veterinario')
 ON CONFLICT (email) DO NOTHING;
+
+UPDATE users SET clinic_id = (SELECT id FROM clinics ORDER BY id LIMIT 1)
+WHERE role = 'veterinario';

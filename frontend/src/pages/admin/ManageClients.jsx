@@ -4,6 +4,8 @@ import {
   setClientActive,
   getVets,
   setVetActive,
+  setVetClinic,
+  getClinics,
   assignVetRole,
   getVetRequests,
   rejectVetRequest,
@@ -15,12 +17,14 @@ export default function ManageClients() {
   const [tab, setTab] = useState('clients'); // 'clients' | 'vets'
   const [clients, setClients] = useState([]);
   const [vets, setVets] = useState([]);
+  const [clinics, setClinics] = useState([]);
   const [requests, setRequests] = useState([]);
   const [msg, setMsg] = useState('');
 
   const load = () => {
     getClients().then(setClients).catch(() => {});
     getVets().then(setVets).catch(() => {});
+    getClinics().then(setClinics).catch(() => {});
     getVetRequests().then(setRequests).catch(() => {});
   };
   useEffect(() => { load(); }, []);
@@ -32,6 +36,11 @@ export default function ManageClients() {
 
   const toggleVetActive = async (v) => {
     await setVetActive(v.id, !v.is_active).catch(() => {});
+    load();
+  };
+
+  const changeVetClinic = async (v, clinicId) => {
+    await setVetClinic(v.id, clinicId ? Number(clinicId) : null).catch(() => {});
     load();
   };
 
@@ -156,11 +165,11 @@ export default function ManageClients() {
 
       {tab === 'vets' && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
+          <table className="w-full min-w-[720px] bg-white border border-slate-200 rounded-lg overflow-hidden text-sm">
             <thead className="bg-slate-50 text-left">
               <tr>
                 <th className="p-3">Nombre</th><th className="p-3">Email</th>
-                <th className="p-3">Teléfono</th><th className="p-3">Estado</th><th className="p-3"></th>
+                <th className="p-3">Clínica</th><th className="p-3">Estado</th><th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -168,7 +177,18 @@ export default function ManageClients() {
                 <tr key={v.id} className="border-t">
                   <td className="p-3">🩺 {v.name}</td>
                   <td className="p-3">{v.email}</td>
-                  <td className="p-3">{v.phone || '—'}</td>
+                  <td className="p-3">
+                    <select
+                      value={v.clinic_id || ''}
+                      onChange={(e) => changeVetClinic(v, e.target.value)}
+                      className="border rounded-lg p-1.5 text-sm max-w-[180px]"
+                    >
+                      <option value="">Sin clínica</option>
+                      {clinics.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="p-3">
                     <span className={`text-xs px-2 py-0.5 rounded ${v.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                       {v.is_active ? 'activo' : 'desactivado'}

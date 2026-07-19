@@ -5,7 +5,8 @@ import {
   listUsers, assignVetRole,
   listVetRequests, rejectVetRequest,
   listClients, setClientActive,
-  listVets, setVetActive,
+  listVets, setVetActive, setVetClinic,
+  listClinics, createClinic, getAccessLog,
   createProduct, updateProduct, deleteProduct,
   createCourse, updateCourse,
   listAllOrders,
@@ -34,6 +35,12 @@ router.patch('/clients/:id/active', setClientActive);
 // Veterinarios
 router.get('/vets', listVets);
 router.patch('/vets/:id/active', setVetActive);
+router.patch('/vets/:id/clinic', setVetClinic);
+
+// Clínicas y auditoría
+router.get('/clinics', listClinics);
+router.post('/clinics', createClinic);
+router.get('/access-log', getAccessLog);
 
 // Productos
 router.post('/products', createProduct);

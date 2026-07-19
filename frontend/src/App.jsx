@@ -28,6 +28,7 @@ import ManageProducts from './pages/admin/ManageProducts.jsx';
 import ManageCourses from './pages/admin/ManageCourses.jsx';
 import ManageOrders from './pages/admin/ManageOrders.jsx';
 import ManageClients from './pages/admin/ManageClients.jsx';
+import ManageClinics from './pages/admin/ManageClinics.jsx';
 import Reports from './pages/admin/Reports.jsx';
 
 export default function App() {
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/admin/courses" element={<ProtectedRoute roles={['admin']}><ManageCourses /></ProtectedRoute>} />
           <Route path="/admin/orders" element={<ProtectedRoute roles={['admin']}><ManageOrders /></ProtectedRoute>} />
           <Route path="/admin/clients" element={<ProtectedRoute roles={['admin']}><ManageClients /></ProtectedRoute>} />
+          <Route path="/admin/clinics" element={<ProtectedRoute roles={['admin']}><ManageClinics /></ProtectedRoute>} />
           <Route path="/admin/reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -133,7 +133,9 @@ export default function Chat() {
                 >
                   <option value="">Elige veterinario…</option>
                   {vets.map((v) => (
-                    <option key={v.id} value={v.id}>🩺 {v.name}</option>
+                    <option key={v.id} value={v.id}>
+                      🩺 {v.name}{v.clinic_name ? ` — ${v.clinic_name}` : ''}
+                    </option>
                   ))}
                 </select>
                 <button

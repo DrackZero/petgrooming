@@ -167,6 +167,11 @@ export default function VetPets() {
                         <span>
                           {v.name} — {new Date(v.applied_date).toLocaleDateString('es-ES')}
                           {v.notes && <span className="block text-xs text-slate-400">{v.notes}</span>}
+                          {v.vet_name && (
+                            <span className="block text-xs text-slate-400">
+                              Registrada por {v.vet_name}{v.clinic_name ? ` (${v.clinic_name})` : ''}
+                            </span>
+                          )}
                         </span>
                         <button onClick={() => removeVaccine(v.id)} className="text-red-500 text-xs hover:underline shrink-0">
                           Quitar

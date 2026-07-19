@@ -18,9 +18,11 @@ const getOwnConversation = async (user, conversationId) => {
 export const listVetsForChat = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT id, name FROM users
-       WHERE role = 'veterinario' AND is_active = true
-       ORDER BY name ASC`
+      `SELECT u.id, u.name, c.name AS clinic_name
+       FROM users u
+       LEFT JOIN clinics c ON c.id = u.clinic_id
+       WHERE u.role = 'veterinario' AND u.is_active = true
+       ORDER BY u.name ASC`
     );
     res.json(rows);
   } catch (err) {

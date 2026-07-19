@@ -5,13 +5,18 @@ import { useState, useMemo } from 'react';
 export default function AppointmentForm({ pets = [], slots = [], onSubmit }) {
   const [form, setForm] = useState({ pet_id: '', vet_id: '', slot_id: '' });
 
-  // Veterinarios que tienen al menos un horario disponible.
+  // Veterinarios que tienen al menos un horario disponible (con su clínica).
   const vets = useMemo(() => {
     const map = new Map();
     for (const s of slots) {
-      if (s.vet_id && !map.has(s.vet_id)) map.set(s.vet_id, s.vet_name || 'Veterinario/a');
+      if (s.vet_id && !map.has(s.vet_id)) {
+        map.set(s.vet_id, {
+          name: s.vet_name || 'Veterinario/a',
+          clinic: s.clinic_name || null,
+        });
+      }
     }
-    return [...map.entries()].map(([id, name]) => ({ id, name }));
+    return [...map.entries()].map(([id, v]) => ({ id, ...v }));
   }, [slots]);
 
   // Horarios del veterinario elegido.
@@ -50,7 +55,9 @@ export default function AppointmentForm({ pets = [], slots = [], onSubmit }) {
       >
         <option value="">Selecciona veterinario/a…</option>
         {vets.map((v) => (
-          <option key={v.id} value={v.id}>🩺 {v.name}</option>
+          <option key={v.id} value={v.id}>
+            🩺 {v.name}{v.clinic ? ` — ${v.clinic}` : ''}
+          </option>
         ))}
       </select>
 
