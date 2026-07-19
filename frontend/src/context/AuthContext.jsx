@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
     isAdmin: user?.role === 'admin',
     isVet: user?.role === 'veterinario',
     isClient: user?.role === 'cliente',
+    isManager: user?.role === 'gerente',
     login,
     register,
     logout,

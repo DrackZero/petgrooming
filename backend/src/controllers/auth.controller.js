@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { query } from '../config/db.js';
+import pool, { query } from '../config/db.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 
 const ACCESS_TTL = '15m';
@@ -50,7 +50,7 @@ const sendSession = async (res, user, status = 200) => {
 // POST /api/auth/register  → crea cuenta con rol 'cliente'
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone, wants_vet } = req.body;
+    const { name, email, password, phone, wants_vet, manage_clinic, clinic } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Nombre, email y password son obligatorios' });
     }
@@ -61,8 +61,42 @@ export const register = async (req, res, next) => {
     }
 
     const password_hash = await hashPassword(password);
+
+    // Alta de GERENTE: crea su cuenta y su clínica (queda 'pendiente'
+    // hasta que la plataforma la active = confirmación de la suscripción).
+    if (manage_clinic) {
+      if (!clinic?.name?.trim()) {
+        return res.status(400).json({ message: 'El nombre de la veterinaria es obligatorio' });
+      }
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const u = await client.query(
+          `INSERT INTO users (name, email, password_hash, phone, role)
+           VALUES ($1, $2, $3, $4, 'gerente')
+           RETURNING id, name, email, phone, role`,
+          [name, email, password_hash, phone || null]
+        );
+        const user = u.rows[0];
+        const c = await client.query(
+          `INSERT INTO clinics (name, address, phone, status, plan, manager_id)
+           VALUES ($1, $2, $3, 'pendiente', 'basico', $4) RETURNING id`,
+          [clinic.name.trim(), clinic.address || null, clinic.phone || null, user.id]
+        );
+        await client.query('UPDATE users SET clinic_id = $1 WHERE id = $2', [c.rows[0].id, user.id]);
+        await client.query('COMMIT');
+        await sendSession(res, user, 201);
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+      return;
+    }
+
     // wants_vet: el usuario solicita el rol de veterinario; entra como
-    // cliente y el administrador aprueba o rechaza la solicitud (UC-24).
+    // cliente y el administrador/gerente aprueba la solicitud.
     const { rows } = await query(
       `INSERT INTO users (name, email, password_hash, phone, vet_requested)
        VALUES ($1, $2, $3, $4, $5)

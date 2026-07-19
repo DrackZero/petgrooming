@@ -15,7 +15,7 @@ const NavTip = ({ tip, children }) => (
 );
 
 export default function Navbar() {
-  const { isAuthenticated, isAdmin, isVet, isClient, user, logout } = useAuth();
+  const { isAuthenticated, isAdmin, isVet, isClient, isManager, user, logout } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false); // menú móvil
@@ -81,9 +81,16 @@ export default function Navbar() {
         </>
       )}
 
-      {/* Administrador */}
+      {/* Gerente de clínica */}
+      {isManager && (
+        <NavTip tip="Estado y gestión de tu veterinaria">
+          <NavLink to="/gerente" className={linkClass} onClick={close}>Mi veterinaria</NavLink>
+        </NavTip>
+      )}
+
+      {/* Administrador de plataforma */}
       {isAdmin && (
-        <NavTip tip="Panel de administración del negocio">
+        <NavTip tip="Panel de administración de la plataforma">
           <NavLink to="/admin" className={linkClass} onClick={close}>Admin</NavLink>
         </NavTip>
       )}

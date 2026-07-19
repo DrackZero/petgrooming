@@ -14,7 +14,7 @@ export default function Login() {
     setError('');
     try {
       const user = await login(form);
-      const home = { admin: '/admin', veterinario: '/vet/agenda' };
+      const home = { admin: '/admin', veterinario: '/vet/agenda', gerente: '/gerente' };
       navigate(home[user.role] || '/');
     } catch (err) {
       setError(err.response?.data?.message || 'Error al iniciar sesión');

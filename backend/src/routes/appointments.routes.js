@@ -15,7 +15,7 @@ import {
   updateAppointmentStatus,
 } from '../controllers/appointments.controller.js';
 import { authRequired } from '../middlewares/auth.middleware.js';
-import { vetOnly } from '../middlewares/role.middleware.js';
+import { vetOnly, requireActiveClinic } from '../middlewares/role.middleware.js';
 
 const router = Router();
 
@@ -25,11 +25,11 @@ router.use(authRequired);
 router.get('/all', vetOnly, listAllAppointments);
 router.get('/calendar', vetOnly, getCalendarSummary);
 router.get('/agenda', vetOnly, getAgenda);
-router.post('/slots', vetOnly, createSlot);
-router.post('/slots/bulk', vetOnly, createSlotsBulk);
-router.delete('/slots/:id', vetOnly, deleteSlot);
-router.post('/vet', vetOnly, vetCreateAppointment);
-router.patch('/:id/status', vetOnly, updateAppointmentStatus);
+router.post('/slots', vetOnly, requireActiveClinic, createSlot);
+router.post('/slots/bulk', vetOnly, requireActiveClinic, createSlotsBulk);
+router.delete('/slots/:id', vetOnly, requireActiveClinic, deleteSlot);
+router.post('/vet', vetOnly, requireActiveClinic, vetCreateAppointment);
+router.patch('/:id/status', vetOnly, requireActiveClinic, updateAppointmentStatus);
 
 // ─── Cliente ───
 router.get('/', listMyAppointments);

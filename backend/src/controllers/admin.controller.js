@@ -200,14 +200,21 @@ export const listVets = async (req, res, next) => {
 
 // ─── Clínicas (modelo multi-clínica) ────────────────────────
 
-// GET /api/admin/clinics  → clínicas con conteo de veterinarios
+// Precio mensual de cada plan de suscripción (COP).
+export const PLAN_PRICES = { basico: 60000, pro: 150000 };
+const VALID_PLANS = Object.keys(PLAN_PRICES);
+const VALID_STATUS = ['pendiente', 'activa', 'suspendida'];
+
+// GET /api/admin/clinics  → clínicas con estado, plan, gerente y conteo de vets
 export const listClinics = async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT c.*,
+      `SELECT c.*, m.name AS manager_name, m.email AS manager_email,
               (SELECT COUNT(*)::int FROM users u
                WHERE u.clinic_id = c.id AND u.role = 'veterinario') AS vet_count
-       FROM clinics c ORDER BY c.created_at ASC`
+       FROM clinics c
+       LEFT JOIN users m ON m.id = c.manager_id
+       ORDER BY c.created_at ASC`
     );
     res.json(rows);
   } catch (err) {
@@ -215,16 +222,79 @@ export const listClinics = async (req, res, next) => {
   }
 };
 
-// POST /api/admin/clinics {name, address, phone}
+// POST /api/admin/clinics {name, address, phone}  → alta manual (queda activa)
 export const createClinic = async (req, res, next) => {
   try {
     const { name, address, phone } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: 'El nombre es obligatorio' });
     const { rows } = await query(
-      `INSERT INTO clinics (name, address, phone) VALUES ($1, $2, $3) RETURNING *`,
+      `INSERT INTO clinics (name, address, phone, status) VALUES ($1, $2, $3, 'activa') RETURNING *`,
       [name.trim(), address || null, phone || null]
     );
     res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/clinics/:id/status {status}  → activar/suspender suscripción
+export const setClinicStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!VALID_STATUS.includes(status)) {
+      return res.status(400).json({ message: 'Estado inválido' });
+    }
+    const { rows } = await query(
+      'UPDATE clinics SET status = $1 WHERE id = $2 RETURNING *',
+      [status, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/clinics/:id/plan {plan}  → cambiar plan de suscripción
+export const setClinicPlan = async (req, res, next) => {
+  try {
+    const { plan } = req.body;
+    if (!VALID_PLANS.includes(plan)) {
+      return res.status(400).json({ message: 'Plan inválido' });
+    }
+    const { rows } = await query(
+      'UPDATE clinics SET plan = $1 WHERE id = $2 RETURNING *',
+      [plan, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/admin/subscription  → ingresos por suscripción (lo único que ve la plataforma)
+export const getSubscription = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT plan, COUNT(*)::int AS count
+       FROM clinics WHERE status = 'activa'
+       GROUP BY plan`
+    );
+    let monthlyRevenue = 0;
+    const byPlan = {};
+    for (const r of rows) {
+      byPlan[r.plan] = r.count;
+      monthlyRevenue += (PLAN_PRICES[r.plan] || 0) * r.count;
+    }
+    const totals = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'activa')::int      AS activas,
+         COUNT(*) FILTER (WHERE status = 'pendiente')::int   AS pendientes,
+         COUNT(*) FILTER (WHERE status = 'suspendida')::int  AS suspendidas
+       FROM clinics`
+    );
+    res.json({ monthlyRevenue, byPlan, planPrices: PLAN_PRICES, ...totals.rows[0] });
   } catch (err) {
     next(err);
   }

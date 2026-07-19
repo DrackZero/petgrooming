@@ -24,9 +24,14 @@ export const setVetActive = (id, is_active) =>
 export const setVetClinic = (id, clinic_id) =>
   api.patch(`/admin/vets/${id}/clinic`, { clinic_id }).then((r) => r.data);
 
-// Clínicas y auditoría
+// Clínicas, suscripción y auditoría
 export const getClinics = () => api.get('/admin/clinics').then((r) => r.data);
 export const createClinic = (data) => api.post('/admin/clinics', data).then((r) => r.data);
+export const setClinicStatus = (id, status) =>
+  api.patch(`/admin/clinics/${id}/status`, { status }).then((r) => r.data);
+export const setClinicPlan = (id, plan) =>
+  api.patch(`/admin/clinics/${id}/plan`, { plan }).then((r) => r.data);
+export const getSubscription = () => api.get('/admin/subscription').then((r) => r.data);
 export const getAccessLog = () => api.get('/admin/access-log').then((r) => r.data);
 
 // Productos

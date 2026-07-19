@@ -6,7 +6,7 @@ import {
   listVetRequests, rejectVetRequest,
   listClients, setClientActive,
   listVets, setVetActive, setVetClinic,
-  listClinics, createClinic, getAccessLog,
+  listClinics, createClinic, setClinicStatus, setClinicPlan, getSubscription, getAccessLog,
   createProduct, updateProduct, deleteProduct,
   createCourse, updateCourse,
   listAllOrders,
@@ -37,9 +37,12 @@ router.get('/vets', listVets);
 router.patch('/vets/:id/active', setVetActive);
 router.patch('/vets/:id/clinic', setVetClinic);
 
-// Clínicas y auditoría
+// Clínicas, suscripción y auditoría
 router.get('/clinics', listClinics);
 router.post('/clinics', createClinic);
+router.patch('/clinics/:id/status', setClinicStatus);
+router.patch('/clinics/:id/plan', setClinicPlan);
+router.get('/subscription', getSubscription);
 router.get('/access-log', getAccessLog);
 
 // Productos

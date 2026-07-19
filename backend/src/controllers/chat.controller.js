@@ -22,6 +22,7 @@ export const listVetsForChat = async (req, res, next) => {
        FROM users u
        LEFT JOIN clinics c ON c.id = u.clinic_id
        WHERE u.role = 'veterinario' AND u.is_active = true
+         AND (c.status IS NULL OR c.status = 'activa')
        ORDER BY u.name ASC`
     );
     res.json(rows);

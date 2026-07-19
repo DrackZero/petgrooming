@@ -12,7 +12,7 @@ import {
   deleteVaccine,
 } from '../controllers/pets.controller.js';
 import { authRequired } from '../middlewares/auth.middleware.js';
-import { vetOnly } from '../middlewares/role.middleware.js';
+import { vetOnly, requireActiveClinic } from '../middlewares/role.middleware.js';
 
 const router = Router();
 
@@ -26,10 +26,10 @@ router.get('/:id', getPet);
 router.get('/:id/history', getPetHistory);
 router.get('/:id/vaccines', listVaccines);
 
-// Escritura — solo veterinario
-router.post('/', vetOnly, createPet);
-router.put('/:id', vetOnly, updatePet);
-router.post('/:id/vaccines', vetOnly, addVaccine);
-router.delete('/:id/vaccines/:vid', vetOnly, deleteVaccine);
+// Escritura — solo veterinario con clínica activa
+router.post('/', vetOnly, requireActiveClinic, createPet);
+router.put('/:id', vetOnly, requireActiveClinic, updatePet);
+router.post('/:id/vaccines', vetOnly, requireActiveClinic, addVaccine);
+router.delete('/:id/vaccines/:vid', vetOnly, requireActiveClinic, deleteVaccine);
 
 export default router;

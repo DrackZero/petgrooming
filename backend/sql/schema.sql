@@ -28,14 +28,19 @@ DROP TABLE IF EXISTS clinics             CASCADE;
 DROP TYPE  IF EXISTS user_role           CASCADE;
 
 -- ─── Tipos ENUM ─────────────────────────────────────────────
-CREATE TYPE user_role AS ENUM ('cliente', 'veterinario', 'admin');
+CREATE TYPE user_role AS ENUM ('cliente', 'veterinario', 'admin', 'gerente');
 
 -- 0) CLINICS (clínicas suscritas a la plataforma) ───────────
+--    status: estado de la suscripción · plan: nivel contratado
+--    manager_id: el gerente responsable de la clínica
 CREATE TABLE clinics (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(160) NOT NULL,
     address     VARCHAR(255),
     phone       VARCHAR(30),
+    status      VARCHAR(20)  NOT NULL DEFAULT 'pendiente', -- pendiente|activa|suspendida
+    plan        VARCHAR(20)  NOT NULL DEFAULT 'basico',    -- basico|pro
+    manager_id  INTEGER,     -- FK a users(id); se enlaza tras crear el gerente
     is_active   BOOLEAN      NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -232,7 +237,7 @@ CREATE INDEX idx_access_log_pet ON emergency_access_log(pet_id);
 CREATE INDEX idx_access_log_vet ON emergency_access_log(vet_id);
 
 -- ─── Datos semilla ──────────────────────────────────────────
-INSERT INTO clinics (name, address) VALUES ('PetGrooming Yopal', 'Yopal, Casanare');
+INSERT INTO clinics (name, address, status, plan) VALUES ('PetGrooming Yopal', 'Yopal, Casanare', 'activa', 'pro');
 
 -- Admin  (admin@petgrooming.com / admin123)
 -- Vet    (vet@petgrooming.com   / vet123)

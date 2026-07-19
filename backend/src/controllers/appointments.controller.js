@@ -63,7 +63,7 @@ export const listAvailableSlots = async (req, res, next) => {
        FROM availability_slots sl
        LEFT JOIN users v ON v.id = sl.vet_id
        LEFT JOIN clinics c ON c.id = v.clinic_id
-       WHERE ${where}
+       WHERE ${where} AND (c.status IS NULL OR c.status = 'activa')
        ORDER BY sl.starts_at ASC`,
       params
     );
