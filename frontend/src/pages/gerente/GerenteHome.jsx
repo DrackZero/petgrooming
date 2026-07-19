@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getMyClinic } from '../../api/gerente.js';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -14,7 +15,7 @@ const statusMsg = {
   suspendida: 'Tu veterinaria está suspendida. Regulariza tu suscripción con la plataforma para reactivarla.',
 };
 
-// Panel del GERENTE (Fase A): estado de su veterinaria y su suscripción.
+// Panel del GERENTE: estado de su veterinaria + accesos a su gestión.
 export default function GerenteHome() {
   const { user } = useAuth();
   const [clinic, setClinic] = useState(null);
@@ -28,7 +29,7 @@ export default function GerenteHome() {
   if (!clinic) return <p className="text-slate-500">Cargando…</p>;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <p className="text-sm text-slate-500">Hola, {user?.name?.split(' ')[0]}</p>
       <h1 className="page-title mb-4">Mi veterinaria</h1>
 
@@ -44,14 +45,18 @@ export default function GerenteHome() {
           </span>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3 mt-5">
+        <div className="grid grid-cols-3 gap-3 mt-5">
           <div className="bg-slate-50 rounded-xl p-4">
-            <p className="text-xs text-slate-500">Plan contratado</p>
+            <p className="text-xs text-slate-500">Plan</p>
             <p className="text-lg font-extrabold text-brand-dark capitalize">{clinic.plan}</p>
           </div>
           <div className="bg-slate-50 rounded-xl p-4">
             <p className="text-xs text-slate-500">Veterinarios</p>
             <p className="text-lg font-extrabold text-brand-dark">{clinic.vet_count}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-4">
+            <p className="text-xs text-slate-500">Solicitudes</p>
+            <p className="text-lg font-extrabold text-brand-dark">{clinic.pending_count}</p>
           </div>
         </div>
 
@@ -60,9 +65,28 @@ export default function GerenteHome() {
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 mt-4">
-        Próximamente podrás gestionar a tus veterinarios y ver los reportes de tu clínica desde aquí.
-      </p>
+      {/* Accesos a la gestión */}
+      <div className="grid sm:grid-cols-2 gap-4 mt-4">
+        <Link to="/gerente/vets" className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition flex items-center gap-3">
+          <span className="text-3xl">🩺</span>
+          <div>
+            <p className="font-bold text-slate-800">Veterinarios</p>
+            <p className="text-sm text-slate-500">Aprueba y gestiona a tu equipo</p>
+          </div>
+          {clinic.pending_count > 0 && (
+            <span className="ml-auto text-xs font-bold bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+              {clinic.pending_count} nueva{clinic.pending_count !== 1 && 's'}
+            </span>
+          )}
+        </Link>
+        <Link to="/gerente/reports" className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition flex items-center gap-3">
+          <span className="text-3xl">📊</span>
+          <div>
+            <p className="font-bold text-slate-800">Reportes</p>
+            <p className="text-sm text-slate-500">Citas y actividad de tu clínica</p>
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }

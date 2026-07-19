@@ -138,12 +138,13 @@ export const assignVetRole = async (req, res, next) => {
   }
 };
 
-// GET /api/admin/vet-requests  → solicitudes pendientes de rol veterinario
+// GET /api/admin/vet-requests  → solicitudes de vet SIN clínica (las demás
+// las gestiona el gerente de la clínica elegida por el veterinario).
 export const listVetRequests = async (req, res, next) => {
   try {
     const { rows } = await query(
       `SELECT id, name, email, created_at FROM users
-       WHERE vet_requested = true AND role = 'cliente'
+       WHERE vet_requested = true AND role = 'cliente' AND clinic_id IS NULL
        ORDER BY created_at ASC`
     );
     res.json(rows);

@@ -50,7 +50,7 @@ const sendSession = async (res, user, status = 200) => {
 // POST /api/auth/register  → crea cuenta con rol 'cliente'
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone, wants_vet, manage_clinic, clinic } = req.body;
+    const { name, email, password, phone, wants_vet, clinic_id, manage_clinic, clinic } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Nombre, email y password son obligatorios' });
     }
@@ -95,13 +95,19 @@ export const register = async (req, res, next) => {
       return;
     }
 
-    // wants_vet: el usuario solicita el rol de veterinario; entra como
-    // cliente y el administrador/gerente aprueba la solicitud.
+    // wants_vet: el usuario solicita el rol de veterinario para una clínica
+    // concreta (clinic_id). Entra como cliente y el GERENTE de esa clínica
+    // aprueba la solicitud. Solo se guarda la clínica si está activa.
+    let vetClinicId = null;
+    if (wants_vet && clinic_id) {
+      const c = await query("SELECT id FROM clinics WHERE id = $1 AND status = 'activa'", [clinic_id]);
+      if (c.rows.length) vetClinicId = clinic_id;
+    }
     const { rows } = await query(
-      `INSERT INTO users (name, email, password_hash, phone, vet_requested)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (name, email, password_hash, phone, vet_requested, clinic_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, email, phone, role`,
-      [name, email, password_hash, phone || null, Boolean(wants_vet)]
+      [name, email, password_hash, phone || null, Boolean(wants_vet), vetClinicId]
     );
 
     await sendSession(res, rows[0], 201);

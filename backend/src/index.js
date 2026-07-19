@@ -11,6 +11,7 @@ import coursesRoutes from './routes/courses.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import gerenteRoutes from './routes/gerente.routes.js';
+import clinicsRoutes from './routes/clinics.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import { notFound, errorHandler } from './middlewares/error.middleware.js';
 import { initWebSocket } from './ws.js';
@@ -44,6 +45,7 @@ app.use('/api/courses', coursesRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/gerente', gerenteRoutes);
+app.use('/api/clinics', clinicsRoutes);
 app.use('/api/chat', chatRoutes);
 
 // ─── Manejo de errores ──────────────────────────────────────

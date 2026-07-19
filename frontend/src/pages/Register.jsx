@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
+import { getActiveClinics } from '../api/clinics.js';
 import Notification from '../components/Notification.jsx';
 
 // Tipo de cuenta al registrarse.
@@ -16,7 +17,16 @@ export default function Register() {
   const [account, setAccount] = useState('cliente');
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [clinic, setClinic] = useState({ name: '', address: '', phone: '' });
+  const [vetClinicId, setVetClinicId] = useState('');
+  const [activeClinics, setActiveClinics] = useState([]);
   const [error, setError] = useState('');
+
+  // Al elegir "Veterinario" cargamos las clínicas activas para escoger una.
+  useEffect(() => {
+    if (account === 'veterinario' && activeClinics.length === 0) {
+      getActiveClinics().then(setActiveClinics).catch(() => {});
+    }
+  }, [account, activeClinics.length]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -25,7 +35,7 @@ export default function Register() {
     setError('');
     try {
       const payload = { ...form };
-      if (account === 'veterinario') payload.wants_vet = true;
+      if (account === 'veterinario') { payload.wants_vet = true; payload.clinic_id = vetClinicId || null; }
       if (account === 'gerente') { payload.manage_clinic = true; payload.clinic = clinic; }
       const user = await register(payload);
       const home = { gerente: '/gerente', admin: '/admin', veterinario: '/vet/agenda' };
@@ -68,9 +78,18 @@ export default function Register() {
         <input name="password" type="password" placeholder="Contraseña" required className="w-full border rounded p-2" value={form.password} onChange={handleChange} />
 
         {account === 'veterinario' && (
-          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2">
-            Tu solicitud quedará pendiente de aprobación. Mientras tanto tendrás una cuenta de cliente.
-          </p>
+          <div className="border-t border-slate-100 pt-3 space-y-2">
+            <p className="text-sm font-semibold text-slate-700">¿En qué veterinaria atenderás?</p>
+            <select value={vetClinicId} onChange={(e) => setVetClinicId(e.target.value)} required className="w-full border rounded p-2">
+              <option value="">Selecciona una veterinaria…</option>
+              {activeClinics.map((c) => (
+                <option key={c.id} value={c.id}>🏥 {c.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2">
+              El gerente de esa veterinaria aprobará tu solicitud. Mientras tanto tendrás una cuenta de cliente.
+            </p>
+          </div>
         )}
 
         {account === 'gerente' && (

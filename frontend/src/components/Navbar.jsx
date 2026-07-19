@@ -83,9 +83,17 @@ export default function Navbar() {
 
       {/* Gerente de clínica */}
       {isManager && (
-        <NavTip tip="Estado y gestión de tu veterinaria">
-          <NavLink to="/gerente" className={linkClass} onClick={close}>Mi veterinaria</NavLink>
-        </NavTip>
+        <>
+          <NavTip tip="Estado y suscripción de tu veterinaria">
+            <NavLink to="/gerente" className={linkClass} onClick={close} end>Mi veterinaria</NavLink>
+          </NavTip>
+          <NavTip tip="Aprueba y gestiona a tus veterinarios">
+            <NavLink to="/gerente/vets" className={linkClass} onClick={close}>Veterinarios</NavLink>
+          </NavTip>
+          <NavTip tip="Citas y actividad de tu clínica">
+            <NavLink to="/gerente/reports" className={linkClass} onClick={close}>Reportes</NavLink>
+          </NavTip>
+        </>
       )}
 
       {/* Administrador de plataforma */}
