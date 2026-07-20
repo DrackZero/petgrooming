@@ -71,6 +71,16 @@ CREATE TABLE refresh_tokens (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
+-- 2b) PASSWORD_RESETS (recuperación de contraseña, token de un solo uso)
+CREATE TABLE password_resets (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  VARCHAR(64)  NOT NULL,
+    expires_at  TIMESTAMPTZ  NOT NULL,
+    used        BOOLEAN      NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- 3) PETS (el cliente registra la primera; el resto, el veterinario)
 CREATE TABLE pets (
     id          SERIAL PRIMARY KEY,

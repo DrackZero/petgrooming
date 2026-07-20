@@ -45,7 +45,8 @@ Esquema base en `backend/sql/schema.sql`. Migraciones incrementales:
 - `migration-004-clinicas.sql` — clinics, users.clinic_id, vaccines.vet_id, emergency_access_log (aplicada)
 - `migration-005-gerente.sql` — rol `gerente`, clinics.status/plan/manager_id (aplicada)
 - `migration-006-tienda-clinica.sql` — products.clinic_id, courses.clinic_id, clinics.store_enabled (aplicada)
-- `migration-007-pet-requests.sql` — tabla `pet_requests` (límite de 1 mascota autoregistrada por cliente + solicitud de mascota adicional). **Aplicada en local, PENDIENTE en Neon.**
+- `migration-007-pet-requests.sql` — tabla `pet_requests` (límite de 1 mascota autoregistrada por cliente + solicitud de mascota adicional) (aplicada)
+- `migration-008-password-reset.sql` — tabla `password_resets` (recuperación de contraseña, token hasheado de un solo uso, vence en 1 h). **Aplicada en local, PENDIENTE en Neon.**
 
 **Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro.
 Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000 COP/mes.
@@ -64,6 +65,8 @@ Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000
 ## Funcionalidades destacadas ya implementadas
 
 - Auth: access token 15min + refresh token 7d con rotación (cookies httpOnly).
+- **Recuperación de contraseña**: "¿Olvidaste tu contraseña?" en el login → `/forgot-password` pide el email (respuesta genérica, no revela cuentas) → correo por Resend con enlace a `/reset-password?token=…` → token de un solo uso (SHA-256 en BD, vence 1 h); al usarse revoca todas las sesiones. Fuera de producción `/auth/forgot` devuelve `debug_token` para pruebas.
+- **Calendario del vet** muestra también los días con horario libre sin reservar (estado `disponible`, punto índigo), no solo los días con citas.
 - Historial clínico **portable entre clínicas** + bitácora de acceso "break-glass" (`emergency_access_log`).
 - **Chat de emergencia en vivo** cliente↔veterinario por WebSocket (`/ws`, auth por cookie).
 - **Calendario mensual** del veterinario (estilo Q10).
@@ -71,10 +74,10 @@ Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
 
-## Pruebas (todas en verde, ~159 casos)
+## Pruebas (todas en verde, ~185 casos)
 
 En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
-- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit
+- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset
 
 ## Cuentas semilla (tras la limpieza, son las ÚNICAS en producción)
 

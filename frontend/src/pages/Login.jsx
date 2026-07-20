@@ -48,6 +48,12 @@ export default function Login() {
             Entrar
           </button>
         </form>
+        <Link
+          to="/forgot-password"
+          className="block text-center text-sm text-brand-dark hover:underline mt-4"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
       </div>
 
       {/* Anuncio: invitación a registrarse */}

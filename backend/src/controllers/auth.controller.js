@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import pool, { query } from '../config/db.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
+import { sendPasswordReset } from '../services/email.service.js';
 
 const ACCESS_TTL = '15m';
 const REFRESH_DAYS = 7;
@@ -174,6 +175,86 @@ export const logout = async (req, res, next) => {
     res.clearCookie('accessToken', accessCookie);
     res.clearCookie('refreshToken', refreshCookie);
     res.json({ message: 'Sesión cerrada' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Recuperación de contraseña ─────────────────────────────
+
+const RESET_TTL_MIN = 60; // el enlace vence en 1 hora
+const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
+
+// POST /api/auth/forgot {email}  → envía el enlace de restablecimiento.
+// SIEMPRE responde 200 con el mismo mensaje, exista o no la cuenta,
+// para no revelar qué emails están registrados.
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email?.trim()) return res.status(400).json({ message: 'El email es obligatorio' });
+
+    const generic = {
+      message: 'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.',
+    };
+
+    const { rows } = await query(
+      'SELECT id, name, email FROM users WHERE email = $1 AND is_active = true',
+      [email.trim()]
+    );
+    if (!rows.length) return res.json(generic);
+    const user = rows[0];
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + RESET_TTL_MIN * 60 * 1000);
+    await query(
+      'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [user.id, hashToken(token), expiresAt]
+    );
+
+    const base = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${base}/reset-password?token=${token}`;
+    sendPasswordReset(user.email, { name: user.name, resetUrl }).catch(() => {});
+
+    // Fuera de producción se devuelve el token para poder probar el flujo
+    // sin bandeja de correo (los tests de integración lo usan).
+    if (!isProd) return res.json({ ...generic, debug_token: token });
+    res.json(generic);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/reset {token, password}  → cambia la contraseña.
+// El token es de un solo uso; al usarse se revocan todas las sesiones.
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Token y nueva contraseña son obligatorios' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const { rows } = await query(
+      `SELECT pr.id, pr.user_id FROM password_resets pr
+       JOIN users u ON u.id = pr.user_id
+       WHERE pr.token_hash = $1 AND pr.used = false
+         AND pr.expires_at > now() AND u.is_active = true`,
+      [hashToken(token)]
+    );
+    if (!rows.length) {
+      return res.status(400).json({ message: 'El enlace no es válido o ya venció. Solicita uno nuevo.' });
+    }
+    const { id: resetId, user_id } = rows[0];
+
+    const password_hash = await hashPassword(password);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, user_id]);
+    await query('UPDATE password_resets SET used = true WHERE id = $1', [resetId]);
+    // Cierra todas las sesiones abiertas del usuario por seguridad.
+    await query('UPDATE refresh_tokens SET revoked = true WHERE user_id = $1', [user_id]);
+
+    res.json({ message: 'Contraseña actualizada. Ya puedes iniciar sesión.' });
   } catch (err) {
     next(err);
   }
