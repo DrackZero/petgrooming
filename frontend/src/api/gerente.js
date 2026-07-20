@@ -20,6 +20,8 @@ export const getMyReports = () => api.get('/gerente/reports').then((r) => r.data
 // Mi suscripción (pago por Wompi de la plataforma)
 export const paySubscription = (plan) =>
   api.post('/gerente/subscription/pay', { plan }).then((r) => r.data);
+export const downgradePlan = () =>
+  api.post('/gerente/subscription/downgrade').then((r) => r.data);
 
 // Mi tienda (solo plan Pro)
 export const toggleStore = (enabled) => api.patch('/gerente/store', { enabled }).then((r) => r.data);

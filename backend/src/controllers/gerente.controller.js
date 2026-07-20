@@ -156,6 +156,22 @@ export const paySubscription = async (req, res, next) => {
   }
 };
 
+// POST /api/gerente/subscription/downgrade  → bajar a plan Básico
+// (inmediato, sin pago). Al perder Pro, se apaga la tienda.
+export const downgradeToBasico = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `UPDATE clinics SET plan = 'basico', store_enabled = false
+       WHERE manager_id = $1 RETURNING id, plan, store_enabled`,
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Tienda de la clínica (solo plan Pro) ───────────────────
 
 // Devuelve la clínica del gerente y valida que tenga plan Pro.

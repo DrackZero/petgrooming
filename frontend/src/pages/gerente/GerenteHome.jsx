@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyClinic, paySubscription } from '../../api/gerente.js';
+import { getMyClinic, paySubscription, downgradePlan } from '../../api/gerente.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { formatCOP } from '../../utils/format.js';
 import { wompiCheckoutUrl } from '../../utils/wompi.js';
@@ -35,7 +35,7 @@ export default function GerenteHome() {
     getMyClinic().then(setClinic).catch(() => setError('No se pudo cargar tu veterinaria'));
   }, []);
 
-  // Pagar la suscripción por Wompi; al aprobarse, el webhook activa la clínica.
+  // Pagar la suscripción por Wompi; al aprobarse, el webhook activa/actualiza la clínica.
   const pay = async (plan) => {
     setPaying(plan);
     try {
@@ -49,6 +49,17 @@ export default function GerenteHome() {
       setError(err.response?.data?.message || 'No fue posible iniciar el pago');
     } finally {
       setPaying('');
+    }
+  };
+
+  // Bajar a Básico (inmediato, sin pago). Apaga la tienda.
+  const downgrade = async () => {
+    if (!confirm('¿Cambiar al plan Básico? Perderás la tienda y los cursos.')) return;
+    try {
+      const r = await downgradePlan();
+      setClinic({ ...clinic, plan: r.plan, store_enabled: r.store_enabled });
+    } catch (err) {
+      setError(err.response?.data?.message || 'No fue posible cambiar el plan');
     }
   };
 
@@ -92,31 +103,54 @@ export default function GerenteHome() {
         </div>
       </div>
 
-      {/* Pago de suscripción cuando la clínica no está activa */}
-      {clinic.status !== 'activa' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
-          <h2 className="font-bold text-slate-800 mb-1">Activa tu veterinaria</h2>
-          <p className="text-sm text-slate-500 mb-4">Elige un plan y paga tu suscripción mensual para empezar a operar.</p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {PLANS.map((p) => (
-              <div key={p.value} className="border border-slate-200 rounded-xl p-4 flex flex-col">
+      {/* Suscripción: activar (si no está activa) o cambiar de plan (si lo está) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
+        {clinic.status !== 'activa' ? (
+          <>
+            <h2 className="font-bold text-slate-800 mb-1">Activa tu veterinaria</h2>
+            <p className="text-sm text-slate-500 mb-4">Elige un plan y paga tu suscripción mensual para empezar a operar.</p>
+          </>
+        ) : (
+          <>
+            <h2 className="font-bold text-slate-800 mb-1">Tu plan</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Estás en el plan <strong className="capitalize">{clinic.plan}</strong>. Puedes cambiarlo cuando quieras.
+            </p>
+          </>
+        )}
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          {PLANS.map((p) => {
+            const current = clinic.status === 'activa' && clinic.plan === p.value;
+            const isDowngrade = clinic.status === 'activa' && clinic.plan === 'pro' && p.value === 'basico';
+            return (
+              <div key={p.value} className={`border rounded-xl p-4 flex flex-col ${current ? 'border-brand bg-brand-50' : 'border-slate-200'}`}>
                 <div className="flex items-baseline justify-between">
                   <p className="font-bold text-slate-800">{p.label}</p>
                   <p className="text-lg font-extrabold text-brand-dark">{formatCOP(p.price)}<span className="text-xs font-normal text-slate-400">/mes</span></p>
                 </div>
                 <p className="text-sm text-slate-500 mt-1 flex-1">{p.features}</p>
-                <button
-                  onClick={() => pay(p.value)}
-                  disabled={!!paying}
-                  className="mt-3 bg-brand text-white rounded-full py-2 text-sm font-semibold hover:bg-brand-dark disabled:bg-slate-300 transition"
-                >
-                  {paying === p.value ? 'Redirigiendo…' : `Pagar plan ${p.label}`}
-                </button>
+
+                {current ? (
+                  <span className="mt-3 text-center text-sm font-semibold text-brand-dark py-2">Plan actual ✓</span>
+                ) : isDowngrade ? (
+                  <button onClick={downgrade} className="mt-3 rounded-full py-2 text-sm font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 transition">
+                    Cambiar a Básico
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => pay(p.value)}
+                    disabled={!!paying}
+                    className="mt-3 bg-brand text-white rounded-full py-2 text-sm font-semibold hover:bg-brand-dark disabled:bg-slate-300 transition"
+                  >
+                    {paying === p.value ? 'Redirigiendo…' : clinic.status === 'activa' ? `Mejorar a ${p.label}` : `Pagar plan ${p.label}`}
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Accesos a la gestión */}
       <div className="grid sm:grid-cols-2 gap-4 mt-4">
