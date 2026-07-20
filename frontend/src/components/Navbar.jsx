@@ -93,6 +93,9 @@ export default function Navbar() {
           <NavTip tip="Citas y actividad de tu clínica">
             <NavLink to="/gerente/reports" className={linkClass} onClick={close}>Reportes</NavLink>
           </NavTip>
+          <NavTip tip="Tu tienda y cursos (plan Pro)">
+            <NavLink to="/gerente/store" className={linkClass} onClick={close}>Tienda</NavLink>
+          </NavTip>
         </>
       )}
 

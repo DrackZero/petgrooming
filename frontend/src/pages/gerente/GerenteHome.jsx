@@ -86,6 +86,15 @@ export default function GerenteHome() {
             <p className="text-sm text-slate-500">Citas y actividad de tu clínica</p>
           </div>
         </Link>
+        <Link to="/gerente/store" className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition flex items-center gap-3 sm:col-span-2">
+          <span className="text-3xl">🛍️</span>
+          <div>
+            <p className="font-bold text-slate-800">Tienda y cursos</p>
+            <p className="text-sm text-slate-500">
+              {clinic.plan === 'pro' ? 'Gestiona tu catálogo en línea' : 'Disponible al mejorar al plan Pro'}
+            </p>
+          </div>
+        </Link>
       </div>
     </div>
   );

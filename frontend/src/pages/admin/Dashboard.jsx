@@ -6,8 +6,6 @@ import { formatCOP } from '../../utils/format.js';
 const cards = [
   { to: '/admin/clinics', label: 'Clínicas y suscripciones', icon: '🏥' },
   { to: '/admin/clients', label: 'Clientes y veterinarios', icon: '👥' },
-  { to: '/admin/products', label: 'Productos y stock', icon: '📦' },
-  { to: '/admin/courses', label: 'Cursos', icon: '🎓' },
 ];
 
 // Panel del ADMINISTRADOR DE PLATAFORMA: enfocado en la suscripción.

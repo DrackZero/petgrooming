@@ -29,6 +29,7 @@ export default function ProductCard({ product, onAdd }) {
           </span>
         )}
         <h3 className="font-bold text-slate-800">{product.name}</h3>
+        {product.clinic_name && <p className="text-[11px] text-slate-400">🏥 {product.clinic_name}</p>}
         <p className="text-sm text-slate-500 mt-1 flex-1 line-clamp-2">{product.description}</p>
         <div className="mt-3 flex items-center justify-between">
           <span className="text-lg font-extrabold text-brand-dark">{formatCOP(product.price)}</span>

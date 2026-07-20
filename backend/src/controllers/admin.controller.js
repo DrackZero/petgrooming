@@ -379,9 +379,10 @@ export const setClientActive = async (req, res, next) => {
 export const createProduct = async (req, res, next) => {
   try {
     const { name, description, price, stock, image_url, category } = req.body;
+    // Los productos del admin de plataforma van a la clínica semilla (tienda de la plataforma).
     const { rows } = await query(
-      `INSERT INTO products (name, description, price, stock, image_url, category)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      `INSERT INTO products (clinic_id, name, description, price, stock, image_url, category)
+       VALUES ((SELECT id FROM clinics ORDER BY id LIMIT 1),$1,$2,$3,$4,$5,$6) RETURNING *`,
       [name, description, price, stock, image_url, category]
     );
     res.status(201).json(rows[0]);
@@ -419,8 +420,8 @@ export const createCourse = async (req, res, next) => {
   try {
     const { title, description, price, duration, capacity, starts_at, image_url } = req.body;
     const { rows } = await query(
-      `INSERT INTO courses (title, description, price, duration, capacity, starts_at, image_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      `INSERT INTO courses (clinic_id, title, description, price, duration, capacity, starts_at, image_url)
+       VALUES ((SELECT id FROM clinics ORDER BY id LIMIT 1),$1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [title, description, price, duration, capacity, starts_at, image_url]
     );
     res.status(201).json(rows[0]);

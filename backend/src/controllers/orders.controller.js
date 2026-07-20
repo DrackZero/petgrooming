@@ -43,11 +43,17 @@ export const expireStaleOrders = async () => {
   }
 };
 
-// GET /api/orders/products  → catálogo de la tienda
+// GET /api/orders/products  → catálogo público: solo de clínicas Pro
+// con la tienda activada. Cada producto lleva el nombre de su clínica.
 export const listProducts = async (req, res, next) => {
   try {
     const { rows } = await query(
-      'SELECT * FROM products WHERE active = true ORDER BY created_at DESC'
+      `SELECT p.*, c.name AS clinic_name
+       FROM products p
+       JOIN clinics c ON c.id = p.clinic_id
+       WHERE p.active = true
+         AND c.status = 'activa' AND c.plan = 'pro' AND c.store_enabled = true
+       ORDER BY p.created_at DESC`
     );
     res.json(rows);
   } catch (err) {

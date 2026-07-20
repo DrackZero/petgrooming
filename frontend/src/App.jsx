@@ -21,6 +21,7 @@ import Chat from './pages/Chat.jsx';
 import GerenteHome from './pages/gerente/GerenteHome.jsx';
 import GerenteVets from './pages/gerente/GerenteVets.jsx';
 import GerenteReports from './pages/gerente/GerenteReports.jsx';
+import GerenteStore from './pages/gerente/GerenteStore.jsx';
 
 // Panel del veterinario
 import VetAgenda from './pages/vet/VetAgenda.jsx';
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/gerente" element={<ProtectedRoute roles={['gerente']}><GerenteHome /></ProtectedRoute>} />
           <Route path="/gerente/vets" element={<ProtectedRoute roles={['gerente']}><GerenteVets /></ProtectedRoute>} />
           <Route path="/gerente/reports" element={<ProtectedRoute roles={['gerente']}><GerenteReports /></ProtectedRoute>} />
+          <Route path="/gerente/store" element={<ProtectedRoute roles={['gerente']}><GerenteStore /></ProtectedRoute>} />
 
           {/* Veterinario */}
           <Route path="/vet/agenda" element={<ProtectedRoute roles={['veterinario']}><VetAgenda /></ProtectedRoute>} />

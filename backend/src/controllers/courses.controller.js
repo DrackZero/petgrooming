@@ -1,10 +1,15 @@
 import { query } from '../config/db.js';
 
-// GET /api/courses  → cursos activos
+// GET /api/courses  → cursos públicos: solo de clínicas Pro con tienda activa
 export const listCourses = async (req, res, next) => {
   try {
     const { rows } = await query(
-      'SELECT * FROM courses WHERE active = true ORDER BY starts_at ASC NULLS LAST'
+      `SELECT co.*, c.name AS clinic_name
+       FROM courses co
+       JOIN clinics c ON c.id = co.clinic_id
+       WHERE co.active = true
+         AND c.status = 'activa' AND c.plan = 'pro' AND c.store_enabled = true
+       ORDER BY co.starts_at ASC NULLS LAST`
     );
     res.json(rows);
   } catch (err) {

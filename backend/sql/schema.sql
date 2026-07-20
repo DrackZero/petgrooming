@@ -38,11 +38,12 @@ CREATE TABLE clinics (
     name        VARCHAR(160) NOT NULL,
     address     VARCHAR(255),
     phone       VARCHAR(30),
-    status      VARCHAR(20)  NOT NULL DEFAULT 'pendiente', -- pendiente|activa|suspendida
-    plan        VARCHAR(20)  NOT NULL DEFAULT 'basico',    -- basico|pro
-    manager_id  INTEGER,     -- FK a users(id); se enlaza tras crear el gerente
-    is_active   BOOLEAN      NOT NULL DEFAULT true,
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+    status        VARCHAR(20) NOT NULL DEFAULT 'pendiente', -- pendiente|activa|suspendida
+    plan          VARCHAR(20) NOT NULL DEFAULT 'basico',    -- basico|pro
+    manager_id    INTEGER,    -- FK a users(id); se enlaza tras crear el gerente
+    store_enabled BOOLEAN     NOT NULL DEFAULT false,       -- tienda activada (solo plan Pro)
+    is_active     BOOLEAN     NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 1) USERS ──────────────────────────────────────────────────
@@ -124,9 +125,10 @@ CREATE TABLE appointments (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 7) COURSES ────────────────────────────────────────────────
+-- 7) COURSES (por clínica) ──────────────────────────────────
 CREATE TABLE courses (
     id           SERIAL PRIMARY KEY,
+    clinic_id    INTEGER       REFERENCES clinics(id) ON DELETE CASCADE,
     title        VARCHAR(160)  NOT NULL,
     description  TEXT,
     price        NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
@@ -148,9 +150,10 @@ CREATE TABLE enrollments (
     UNIQUE (user_id, course_id)
 );
 
--- 9) PRODUCTS (tienda) ──────────────────────────────────────
+-- 9) PRODUCTS (tienda, por clínica) ─────────────────────────
 CREATE TABLE products (
     id          SERIAL PRIMARY KEY,
+    clinic_id   INTEGER       REFERENCES clinics(id) ON DELETE CASCADE,
     name        VARCHAR(160)  NOT NULL,
     description TEXT,
     price       NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price >= 0),

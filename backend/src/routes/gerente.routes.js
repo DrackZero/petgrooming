@@ -8,6 +8,9 @@ import {
   listMyVets,
   setMyVetActive,
   getMyReports,
+  toggleStore,
+  listMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
+  listMyCourses, createMyCourse, updateMyCourse,
 } from '../controllers/gerente.controller.js';
 import { authRequired } from '../middlewares/auth.middleware.js';
 import { managerOnly } from '../middlewares/role.middleware.js';
@@ -28,7 +31,17 @@ router.patch('/vet-requests/:id/reject', rejectVet);
 router.get('/vets', listMyVets);
 router.patch('/vets/:id/active', setMyVetActive);
 
-// Sus reportes
+// Su reportes
 router.get('/reports', getMyReports);
+
+// Su tienda (solo plan Pro)
+router.patch('/store', toggleStore);
+router.get('/products', listMyProducts);
+router.post('/products', createMyProduct);
+router.put('/products/:id', updateMyProduct);
+router.delete('/products/:id', deleteMyProduct);
+router.get('/courses', listMyCourses);
+router.post('/courses', createMyCourse);
+router.put('/courses/:id', updateMyCourse);
 
 export default router;

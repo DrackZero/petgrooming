@@ -132,6 +132,151 @@ export const setMyVetActive = async (req, res, next) => {
 
 // ─── Reportes de la clínica ─────────────────────────────────
 
+// ─── Tienda de la clínica (solo plan Pro) ───────────────────
+
+// Devuelve la clínica del gerente y valida que tenga plan Pro.
+const myProClinic = async (userId) => {
+  const { rows } = await query('SELECT id, plan, store_enabled FROM clinics WHERE manager_id = $1', [userId]);
+  return rows[0] || null;
+};
+
+// PATCH /api/gerente/store {enabled}  → encender/apagar la tienda (Pro)
+export const toggleStore = async (req, res, next) => {
+  try {
+    const clinic = await myProClinic(req.user.id);
+    if (!clinic) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+    if (clinic.plan !== 'pro') {
+      return res.status(403).json({ message: 'La tienda solo está disponible en el plan Pro' });
+    }
+    const { rows } = await query(
+      'UPDATE clinics SET store_enabled = $1 WHERE id = $2 RETURNING id, store_enabled',
+      [req.body.enabled !== false, clinic.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/gerente/products  → catálogo de MI clínica
+export const listMyProducts = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    const { rows } = await query(
+      'SELECT * FROM products WHERE clinic_id = $1 ORDER BY created_at DESC',
+      [clinicId]
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/gerente/products  → crear producto en MI clínica (Pro)
+export const createMyProduct = async (req, res, next) => {
+  try {
+    const clinic = await myProClinic(req.user.id);
+    if (!clinic) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+    if (clinic.plan !== 'pro') return res.status(403).json({ message: 'La tienda solo está disponible en el plan Pro' });
+
+    const { name, description, price, stock, image_url, category } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'El nombre es obligatorio' });
+    const { rows } = await query(
+      `INSERT INTO products (clinic_id, name, description, price, stock, image_url, category)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [clinic.id, name.trim(), description, price || 0, stock || 0, image_url, category]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/gerente/products/:id  → editar producto de MI clínica
+export const updateMyProduct = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    const { name, description, price, stock, image_url, category, active } = req.body;
+    const { rows } = await query(
+      `UPDATE products SET name=$1, description=$2, price=$3, stock=$4,
+              image_url=$5, category=$6, active=$7
+       WHERE id=$8 AND clinic_id=$9 RETURNING *`,
+      [name, description, price, stock, image_url, category, active, req.params.id, clinicId]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Producto no encontrado en tu clínica' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/gerente/products/:id  → desactivar producto de MI clínica
+export const deleteMyProduct = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    const { rowCount } = await query(
+      'UPDATE products SET active = false WHERE id = $1 AND clinic_id = $2',
+      [req.params.id, clinicId]
+    );
+    if (!rowCount) return res.status(404).json({ message: 'Producto no encontrado en tu clínica' });
+    res.json({ message: 'Producto desactivado' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/gerente/courses  → cursos de MI clínica
+export const listMyCourses = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    const { rows } = await query(
+      'SELECT * FROM courses WHERE clinic_id = $1 ORDER BY created_at DESC',
+      [clinicId]
+    );
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/gerente/courses  → crear curso en MI clínica (Pro)
+export const createMyCourse = async (req, res, next) => {
+  try {
+    const clinic = await myProClinic(req.user.id);
+    if (!clinic) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+    if (clinic.plan !== 'pro') return res.status(403).json({ message: 'Los cursos solo están disponibles en el plan Pro' });
+
+    const { title, description, price, duration, capacity, starts_at, image_url } = req.body;
+    if (!title?.trim()) return res.status(400).json({ message: 'El título es obligatorio' });
+    const { rows } = await query(
+      `INSERT INTO courses (clinic_id, title, description, price, duration, capacity, starts_at, image_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [clinic.id, title.trim(), description, price || 0, duration, capacity || 20, starts_at || null, image_url]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/gerente/courses/:id  → editar curso de MI clínica
+export const updateMyCourse = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    const { title, description, price, duration, capacity, starts_at, image_url, active } = req.body;
+    const { rows } = await query(
+      `UPDATE courses SET title=$1, description=$2, price=$3, duration=$4,
+              capacity=$5, starts_at=$6, image_url=$7, active=$8
+       WHERE id=$9 AND clinic_id=$10 RETURNING *`,
+      [title, description, price, duration, capacity, starts_at, image_url, active, req.params.id, clinicId]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Curso no encontrado en tu clínica' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/gerente/reports  → métricas de MI clínica
 export const getMyReports = async (req, res, next) => {
   try {
