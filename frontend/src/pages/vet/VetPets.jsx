@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import { getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory } from '../../api/pets.js';
+import {
+  getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory,
+  getPetRequests, approvePetRequest, rejectPetRequest,
+} from '../../api/pets.js';
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
 import SpeciesPicker from '../../components/SpeciesPicker.jsx';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
 
-// Panel del VETERINARIO: registrar mascotas de clientes y sus vacunas.
+// Panel del VETERINARIO: registrar mascotas de clientes, sus vacunas,
+// y revisar solicitudes de mascota adicional enviadas por clientes.
 export default function VetPets() {
   const [pets, setPets] = useState([]);
   const [clients, setClients] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [form, setForm] = useState(emptyPet);
   const [vaccineFor, setVaccineFor] = useState(null); // mascota a la que se añade vacuna
   const [vaccine, setVaccine] = useState({ name: '', applied_date: '' });
@@ -17,12 +22,31 @@ export default function VetPets() {
   const [history, setHistory] = useState(null);
   const [msg, setMsg] = useState('');
 
-  const load = () => getAllPets().then(setPets).catch(() => {});
+  const load = () => {
+    getAllPets().then(setPets).catch(() => {});
+    getPetRequests().then(setRequests).catch(() => {});
+  };
 
   useEffect(() => {
     load();
     getClientsForVet().then(setClients).catch(() => {});
   }, []);
+
+  const approveRequest = async (r) => {
+    try {
+      await approvePetRequest(r.id);
+      setMsg(`Solicitud de ${r.client_name} aprobada: "${r.name}" registrada ✓`);
+      load();
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'No fue posible aprobar la solicitud');
+    }
+  };
+
+  const rejectRequest = async (r) => {
+    await rejectPetRequest(r.id).catch(() => {});
+    setMsg(`Solicitud de ${r.client_name} rechazada`);
+    load();
+  };
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -69,6 +93,36 @@ export default function VetPets() {
     <div>
       <h1 className="text-2xl font-bold mb-4">Gestión de mascotas</h1>
       <Notification type="success" message={msg} onClose={() => setMsg('')} />
+
+      {/* Solicitudes de mascota adicional pendientes */}
+      {requests.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+          <h2 className="font-bold text-amber-800 mb-3">
+            Solicitudes de mascota adicional ({requests.length})
+          </h2>
+          <div className="space-y-2">
+            {requests.map((r) => (
+              <div key={r.id} className="bg-white rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{r.name}{r.species ? ` — ${r.species}` : ''}{r.breed ? ` / ${r.breed}` : ''}</p>
+                  <p className="text-xs text-slate-500">
+                    Cliente: {r.client_name} ({r.client_email}) · solicitó el {new Date(r.created_at).toLocaleDateString('es-ES')}
+                  </p>
+                  {r.notes && <p className="text-xs text-slate-500 mt-0.5">📋 {r.notes}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => approveRequest(r)} className="text-sm font-semibold px-4 py-1.5 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition">
+                    ✓ Aprobar
+                  </button>
+                  <button onClick={() => rejectRequest(r)} className="text-sm font-semibold px-4 py-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition">
+                    ✕ Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Registrar mascota para un cliente */}
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-4 my-4 grid sm:grid-cols-2 gap-3">

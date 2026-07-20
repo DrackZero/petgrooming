@@ -71,7 +71,7 @@ CREATE TABLE refresh_tokens (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- 3) PETS (registradas por el veterinario) ──────────────────
+-- 3) PETS (el cliente registra la primera; el resto, el veterinario)
 CREATE TABLE pets (
     id          SERIAL PRIMARY KEY,
     owner_id    INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -81,6 +81,21 @@ CREATE TABLE pets (
     age         INTEGER,
     notes       TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- 3b) PET_REQUESTS (solicitud de mascota adicional, la aprueba un vet)
+CREATE TABLE pet_requests (
+    id           SERIAL PRIMARY KEY,
+    client_id    INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name         VARCHAR(80)  NOT NULL,
+    species      VARCHAR(40),
+    breed        VARCHAR(80),
+    age          INTEGER,
+    notes        TEXT,
+    status       VARCHAR(20)  NOT NULL DEFAULT 'pendiente', -- pendiente|aprobada|rechazada
+    reviewed_by  INTEGER      REFERENCES users(id),
+    reviewed_at  TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 -- 4) VACCINES (historial de vacunación) ─────────────────────

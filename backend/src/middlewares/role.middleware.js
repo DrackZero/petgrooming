@@ -14,6 +14,7 @@ export const requireRole = (...roles) => (req, res, next) => {
 export const adminOnly = requireRole('admin');           // administrador de plataforma
 export const vetOnly = requireRole('veterinario');       // personal que atiende
 export const managerOnly = requireRole('gerente');       // gerente de una clínica
+export const clientOnly = requireRole('cliente');        // dueño de mascota
 export const staffOnly = requireRole('veterinario', 'admin');
 
 // Candado de suscripción: un veterinario solo puede operar si su clínica

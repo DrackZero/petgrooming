@@ -39,12 +39,13 @@ atienden, y los clientes (dueños de mascotas) agendan citas, compran y usan el 
 
 ## Base de datos (migraciones aplicadas)
 
-Esquema base en `backend/sql/schema.sql`. Migraciones incrementales (TODAS ya aplicadas en Neon y local):
-- `migration-002-veterinarios.sql` — vet_requested, availability_slots.vet_id
-- `migration-003-chat.sql` — conversations, messages
-- `migration-004-clinicas.sql` — clinics, users.clinic_id, vaccines.vet_id, emergency_access_log
-- `migration-005-gerente.sql` — rol `gerente`, clinics.status/plan/manager_id
-- `migration-006-tienda-clinica.sql` — products.clinic_id, courses.clinic_id, clinics.store_enabled
+Esquema base en `backend/sql/schema.sql`. Migraciones incrementales:
+- `migration-002-veterinarios.sql` — vet_requested, availability_slots.vet_id (aplicada)
+- `migration-003-chat.sql` — conversations, messages (aplicada)
+- `migration-004-clinicas.sql` — clinics, users.clinic_id, vaccines.vet_id, emergency_access_log (aplicada)
+- `migration-005-gerente.sql` — rol `gerente`, clinics.status/plan/manager_id (aplicada)
+- `migration-006-tienda-clinica.sql` — products.clinic_id, courses.clinic_id, clinics.store_enabled (aplicada)
+- `migration-007-pet-requests.sql` — tabla `pet_requests` (límite de 1 mascota autoregistrada por cliente + solicitud de mascota adicional). **Aplicada en local, PENDIENTE en Neon.**
 
 **Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro.
 Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000 COP/mes.
@@ -57,8 +58,8 @@ Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000
 2. Gerente paga suscripción por **Wompi real** (ref `SUB-<clinicId>-<plan>`) → el webhook activa la clínica con ese plan.
    - También puede: mejorar a Pro (pago) o bajar a Básico (inmediato, apaga la tienda). Admin también puede cambiar plan/estado.
 3. Veterinario se registra (tipo "🩺 Veterinario") eligiendo una clínica activa → el **gerente de esa clínica** lo aprueba.
-4. Veterinario define su jornada, registra mascotas/vacunas, atiende citas.
-5. Cliente agenda (elige veterinario con disponibilidad), compra (pago **mock**), usa chat de urgencias.
+4. Veterinario define su jornada, registra mascotas/vacunas, atiende citas. También registra mascotas sin límite y aprueba/rechaza solicitudes de mascota adicional de los clientes (cualquier vet activo ve la cola global, igual que ya ve todo el historial portable).
+5. Cliente agenda (elige veterinario con disponibilidad), compra (pago **mock**), usa chat de urgencias. Registra él mismo su **primera mascota**; para una adicional debe enviar una **solicitud** que aprueba un veterinario (tabla `pet_requests`).
 
 ## Funcionalidades destacadas ya implementadas
 
@@ -70,10 +71,10 @@ Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
 
-## Pruebas (todas en verde, ~146 casos)
+## Pruebas (todas en verde, ~159 casos)
 
 En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
-- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay
+- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit
 
 ## Cuentas semilla (tras la limpieza, son las ÚNICAS en producción)
 
@@ -93,3 +94,4 @@ En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
 - Gerente ≠ veterinario (carriles separados; el usuario fue explícito).
 - Tiendas de clínica en mock a propósito (cada clínica tendrá su Wompi a futuro); la Wompi de la plataforma es solo para cobrar suscripciones.
 - Los productos que crea el admin van a la clínica semilla (tienda de la plataforma).
+- Límite de mascotas: el cliente autoregistra solo 1; para más, la solicitud la aprueba el **veterinario** (no el gerente) — el usuario delegó la decisión. Se eligió vet porque ya es quien gestiona mascotas/historial y las ve todas (portable entre clínicas); el gerente nunca toca datos clínicos. Cualquier vet activo ve la cola global de solicitudes (no hay clínica asignada al cliente).
