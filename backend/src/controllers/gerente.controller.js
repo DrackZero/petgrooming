@@ -1,4 +1,6 @@
 import { query } from '../config/db.js';
+import { wompiEnabled, buildSubscriptionCheckout } from '../services/payment.service.js';
+import { PLAN_PRICES } from './admin.controller.js';
 
 // Devuelve el id de la clínica que dirige el gerente autenticado.
 const myClinicId = async (userId) => {
@@ -131,6 +133,28 @@ export const setMyVetActive = async (req, res, next) => {
 };
 
 // ─── Reportes de la clínica ─────────────────────────────────
+
+// POST /api/gerente/subscription/pay {plan}  → pagar la suscripción por Wompi
+// (Wompi de la plataforma). Al aprobarse, el webhook activa la clínica.
+export const paySubscription = async (req, res, next) => {
+  try {
+    const { plan } = req.body;
+    if (!PLAN_PRICES[plan]) return res.status(400).json({ message: 'Plan inválido' });
+
+    const clinicId = await myClinicId(req.user.id);
+    if (!clinicId) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+
+    const price = PLAN_PRICES[plan];
+
+    if (!wompiEnabled()) {
+      // Sin Wompi (desarrollo): se informa que el pago es simulado.
+      return res.json({ payment: { provider: 'mock', mocked: true, plan, amount: price } });
+    }
+    res.json({ payment: buildSubscriptionCheckout(clinicId, plan, price), plan, amount: price });
+  } catch (err) {
+    next(err);
+  }
+};
 
 // ─── Tienda de la clínica (solo plan Pro) ───────────────────
 

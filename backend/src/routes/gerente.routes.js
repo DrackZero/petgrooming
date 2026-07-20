@@ -8,6 +8,7 @@ import {
   listMyVets,
   setMyVetActive,
   getMyReports,
+  paySubscription,
   toggleStore,
   listMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
   listMyCourses, createMyCourse, updateMyCourse,
@@ -31,8 +32,11 @@ router.patch('/vet-requests/:id/reject', rejectVet);
 router.get('/vets', listMyVets);
 router.patch('/vets/:id/active', setMyVetActive);
 
-// Su reportes
+// Sus reportes
 router.get('/reports', getMyReports);
+
+// Su suscripción (pago por Wompi de la plataforma)
+router.post('/subscription/pay', paySubscription);
 
 // Su tienda (solo plan Pro)
 router.patch('/store', toggleStore);

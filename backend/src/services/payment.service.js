@@ -9,11 +9,10 @@ dotenv.config();
 export const wompiEnabled = () =>
   Boolean(process.env.WOMPI_PUBLIC_KEY && process.env.WOMPI_INTEGRITY_SECRET);
 
-// Construye los datos del Web Checkout para un pedido.
+// Construye los datos del Web Checkout de Wompi para una referencia y monto.
 // La firma de integridad es SHA256(referencia + monto_en_centavos + moneda + secreto).
-export const buildCheckout = (orderId, totalCOP) => {
-  const reference = `PG-${orderId}`;
-  const amountInCents = Math.round(Number(totalCOP) * 100);
+export const buildCheckoutRef = (reference, amountCOP) => {
+  const amountInCents = Math.round(Number(amountCOP) * 100);
   const currency = 'COP';
   const integritySignature = crypto
     .createHash('sha256')
@@ -30,6 +29,13 @@ export const buildCheckout = (orderId, totalCOP) => {
     checkoutBase: 'https://checkout.wompi.co/p/',
   };
 };
+
+// Pago de un pedido de tienda (referencia PG-<orderId>).
+export const buildCheckout = (orderId, totalCOP) => buildCheckoutRef(`PG-${orderId}`, totalCOP);
+
+// Pago de suscripción de una clínica (referencia SUB-<clinicId>-<plan>).
+export const buildSubscriptionCheckout = (clinicId, plan, amountCOP) =>
+  buildCheckoutRef(`SUB-${clinicId}-${plan}`, amountCOP);
 
 // Verifica el checksum de un evento del webhook de Wompi.
 // checksum = SHA256(valores de signature.properties concatenados + timestamp + secreto_eventos)

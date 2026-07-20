@@ -140,10 +140,10 @@ export const createOrder = async (req, res, next) => {
 
     await client.query('COMMIT');
 
-    // Datos de pago: Wompi Web Checkout si hay llaves; simulado si no.
-    const payment = wompiEnabled()
-      ? buildCheckout(order.id, total)
-      : mockPayment(order.id, total);
+    // Las tiendas de las clínicas operan en modo SIMULACIÓN por ahora
+    // (cada clínica integrará su propia pasarela más adelante). El Wompi
+    // de la plataforma se reserva para el cobro de suscripciones.
+    const payment = mockPayment(order.id, total);
 
     res.status(201).json({ order, payment });
   } catch (err) {
@@ -166,9 +166,7 @@ export const payOrder = async (req, res, next) => {
     if (rows[0].status !== 'pendiente') {
       return res.status(409).json({ message: `El pedido ya no está pendiente (${rows[0].status})` });
     }
-    const payment = wompiEnabled()
-      ? buildCheckout(rows[0].id, rows[0].total)
-      : mockPayment(rows[0].id, rows[0].total);
+    const payment = mockPayment(rows[0].id, rows[0].total); // tienda en simulación
     res.json({ payment });
   } catch (err) {
     next(err);
@@ -186,6 +184,19 @@ export const wompiWebhook = async (req, res, next) => {
     }
 
     const tx = event.data?.transaction;
+
+    // Pago de SUSCRIPCIÓN de una clínica (SUB-<clinicId>-<plan>).
+    if (event.event === 'transaction.updated' && tx?.reference?.startsWith('SUB-')) {
+      const [, clinicId, plan] = tx.reference.split('-');
+      if (tx.status === 'APPROVED' && ['basico', 'pro'].includes(plan)) {
+        await query(
+          `UPDATE clinics SET status = 'activa', plan = $1 WHERE id = $2`,
+          [plan, clinicId]
+        );
+      }
+      return res.json({ received: true });
+    }
+
     if (event.event === 'transaction.updated' && tx?.reference?.startsWith('PG-')) {
       const orderId = Number(tx.reference.split('-')[1]);
       const statusMap = { APPROVED: 'aprobado', DECLINED: 'rechazado', VOIDED: 'fallido', ERROR: 'fallido' };

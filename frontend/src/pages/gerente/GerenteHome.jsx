@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyClinic } from '../../api/gerente.js';
+import { getMyClinic, paySubscription } from '../../api/gerente.js';
 import { useAuth } from '../../hooks/useAuth.js';
+import { formatCOP } from '../../utils/format.js';
+import { wompiCheckoutUrl } from '../../utils/wompi.js';
+import Notification from '../../components/Notification.jsx';
+
+// Precios de los planes (mismos que en la plataforma).
+const PLANS = [
+  { value: 'basico', label: 'Básico', price: 60000, features: 'Citas e historial clínico' },
+  { value: 'pro', label: 'Pro', price: 150000, features: 'Todo lo del Básico + tienda y cursos' },
+];
 
 const statusStyle = {
   activa: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -20,18 +29,36 @@ export default function GerenteHome() {
   const { user } = useAuth();
   const [clinic, setClinic] = useState(null);
   const [error, setError] = useState('');
+  const [paying, setPaying] = useState('');
 
   useEffect(() => {
     getMyClinic().then(setClinic).catch(() => setError('No se pudo cargar tu veterinaria'));
   }, []);
 
-  if (error) return <p className="text-red-600">{error}</p>;
-  if (!clinic) return <p className="text-slate-500">Cargando…</p>;
+  // Pagar la suscripción por Wompi; al aprobarse, el webhook activa la clínica.
+  const pay = async (plan) => {
+    setPaying(plan);
+    try {
+      const res = await paySubscription(plan);
+      if (res.payment?.provider === 'wompi') {
+        window.location.href = wompiCheckoutUrl(res.payment);
+        return;
+      }
+      setError('El pago está en modo simulado (Wompi no configurado). El administrador puede activar tu clínica.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'No fue posible iniciar el pago');
+    } finally {
+      setPaying('');
+    }
+  };
+
+  if (!clinic) return error ? <p className="text-red-600">{error}</p> : <p className="text-slate-500">Cargando…</p>;
 
   return (
     <div className="max-w-3xl mx-auto">
       <p className="text-sm text-slate-500">Hola, {user?.name?.split(' ')[0]}</p>
       <h1 className="page-title mb-4">Mi veterinaria</h1>
+      <Notification type="error" message={error} onClose={() => setError('')} />
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6">
         <div className="flex items-start justify-between gap-3">
@@ -64,6 +91,32 @@ export default function GerenteHome() {
           {statusMsg[clinic.status]}
         </div>
       </div>
+
+      {/* Pago de suscripción cuando la clínica no está activa */}
+      {clinic.status !== 'activa' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4">
+          <h2 className="font-bold text-slate-800 mb-1">Activa tu veterinaria</h2>
+          <p className="text-sm text-slate-500 mb-4">Elige un plan y paga tu suscripción mensual para empezar a operar.</p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {PLANS.map((p) => (
+              <div key={p.value} className="border border-slate-200 rounded-xl p-4 flex flex-col">
+                <div className="flex items-baseline justify-between">
+                  <p className="font-bold text-slate-800">{p.label}</p>
+                  <p className="text-lg font-extrabold text-brand-dark">{formatCOP(p.price)}<span className="text-xs font-normal text-slate-400">/mes</span></p>
+                </div>
+                <p className="text-sm text-slate-500 mt-1 flex-1">{p.features}</p>
+                <button
+                  onClick={() => pay(p.value)}
+                  disabled={!!paying}
+                  className="mt-3 bg-brand text-white rounded-full py-2 text-sm font-semibold hover:bg-brand-dark disabled:bg-slate-300 transition"
+                >
+                  {paying === p.value ? 'Redirigiendo…' : `Pagar plan ${p.label}`}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Accesos a la gestión */}
       <div className="grid sm:grid-cols-2 gap-4 mt-4">
