@@ -4,6 +4,7 @@ import { useCart } from '../hooks/useCart.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { createOrder } from '../api/orders.js';
 import Notification from '../components/Notification.jsx';
+import Tooltip from '../components/Tooltip.jsx';
 import { formatCOP } from '../utils/format.js';
 import { wompiCheckoutUrl } from '../utils/wompi.js';
 
@@ -95,9 +96,11 @@ export default function Cart() {
 
           <div className="p-4 flex items-center justify-between">
             <span className="font-bold text-lg">Total: {formatCOP(total)}</span>
-            <button onClick={handleCheckout} className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">
-              Finalizar compra
-            </button>
+            <Tooltip tip="Confirma tu pedido y procede al pago" side="top">
+              <button onClick={handleCheckout} className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">
+                Finalizar compra
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}

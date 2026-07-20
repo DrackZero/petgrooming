@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAvailableSlots, createSlot, createSlotsBulk, deleteSlot } from '../../api/appointments.js';
 import Notification from '../../components/Notification.jsx';
+import Tooltip from '../../components/Tooltip.jsx';
 
 // Orden visual L→D con los valores de getDay() (0=domingo).
 const WEEKDAYS = [
@@ -141,17 +142,19 @@ export default function VetSlots() {
             <input type="time" required className="border rounded-lg p-2 w-full mt-1"
               value={bulk.day_end} onChange={(e) => setBulk({ ...bulk, day_end: e.target.value })} />
           </label>
-          <label className="text-sm">
-            Duración por cita
-            <select className="border rounded-lg p-2 w-full mt-1"
-              value={bulk.duration_min} onChange={(e) => setBulk({ ...bulk, duration_min: e.target.value })}>
-              <option value="30">30 minutos</option>
-              <option value="45">45 minutos</option>
-              <option value="60">1 hora</option>
-              <option value="90">1 hora 30 min</option>
-              <option value="120">2 horas</option>
-            </select>
-          </label>
+          <Tooltip tip="Cuánto dura cada cita: define cada cuánto se crea una franja dentro de tu jornada" side="top">
+            <label className="text-sm w-full">
+              Duración por cita
+              <select className="border rounded-lg p-2 w-full mt-1"
+                value={bulk.duration_min} onChange={(e) => setBulk({ ...bulk, duration_min: e.target.value })}>
+                <option value="30">30 minutos</option>
+                <option value="45">45 minutos</option>
+                <option value="60">1 hora</option>
+                <option value="90">1 hora 30 min</option>
+                <option value="120">2 horas</option>
+              </select>
+            </label>
+          </Tooltip>
         </div>
 
         <button

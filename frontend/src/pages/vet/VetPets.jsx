@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory } from '../../api/pets.js';
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
+import SpeciesPicker from '../../components/SpeciesPicker.jsx';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
 
@@ -78,10 +79,15 @@ export default function VetPets() {
           ))}
         </select>
         <input name="name" placeholder="Nombre de la mascota" required className="border rounded p-2" value={form.name} onChange={handleChange} />
-        <input name="species" placeholder="Especie (perro/gato)" className="border rounded p-2" value={form.species} onChange={handleChange} />
         <input name="breed" placeholder="Raza" className="border rounded p-2" value={form.breed} onChange={handleChange} />
+        <div className="sm:col-span-2">
+          <p className="text-sm font-medium text-slate-600 mb-1">Especie</p>
+          <SpeciesPicker value={form.species} onChange={(v) => setForm({ ...form, species: v })} />
+        </div>
         <input name="age" type="number" min="0" placeholder="Edad (años)" className="border rounded p-2" value={form.age} onChange={handleChange} />
-        <textarea name="notes" placeholder="Notas clínicas" className="border rounded p-2 sm:col-span-2" value={form.notes} onChange={handleChange} />
+        <Tooltip tip="Alergias, condiciones o cualquier dato clínico relevante" side="top" className="sm:col-span-2">
+          <textarea name="notes" placeholder="Notas clínicas" className="border rounded p-2 w-full" value={form.notes} onChange={handleChange} />
+        </Tooltip>
         <button className="bg-brand text-white rounded py-2 sm:col-span-2 hover:bg-brand-dark">
           Registrar mascota
         </button>

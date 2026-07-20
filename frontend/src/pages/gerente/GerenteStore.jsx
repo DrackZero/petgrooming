@@ -7,6 +7,7 @@ import {
 } from '../../api/gerente.js';
 import { formatCOP } from '../../utils/format.js';
 import Notification from '../../components/Notification.jsx';
+import Tooltip from '../../components/Tooltip.jsx';
 
 const emptyProduct = { name: '', description: '', price: '', stock: '', category: '', image_url: '' };
 const emptyCourse = { title: '', description: '', price: '', duration: '', capacity: '', image_url: '' };
@@ -98,14 +99,16 @@ export default function GerenteStore() {
               : 'Tu tienda está oculta. Actívala para que los clientes vean tu catálogo.'}
           </p>
         </div>
-        <button
-          onClick={flipStore}
-          className={`px-4 py-2 rounded-full text-sm font-bold transition ${
-            clinic.store_enabled ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-          }`}
-        >
-          {clinic.store_enabled ? 'Activada' : 'Desactivada'}
-        </button>
+        <Tooltip tip={clinic.store_enabled ? 'Toca para ocultar tu tienda a los clientes' : 'Toca para mostrar tu catálogo a los clientes'} side="top">
+          <button
+            onClick={flipStore}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${
+              clinic.store_enabled ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+            }`}
+          >
+            {clinic.store_enabled ? 'Activada' : 'Desactivada'}
+          </button>
+        </Tooltip>
       </div>
 
       {/* Pestañas */}
