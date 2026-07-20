@@ -8,6 +8,7 @@ const MONTHS = [
 
 // Mismos colores de estado usados en el resto de la app (Appointments, VetAgenda, Reports).
 export const STATUS_COLORS = {
+  disponible: '#6366f1',
   pendiente: '#d97706',
   confirmada: '#059669',
   completada: '#0284c7',
@@ -64,14 +65,20 @@ export default function MonthCalendar({ year, month, summaryByDay, selectedDay, 
           const key = toKey(year, month, d);
           const summary = summaryByDay[key];
           const total = summary ? Object.values(summary).reduce((a, b) => a + b, 0) : 0;
+          const available = summary?.disponible || 0;
+          const bookedCount = total - available;
           const isToday = key === todayKey;
           const isSelected = key === selectedDay;
+
+          const titleParts = [];
+          if (bookedCount > 0) titleParts.push(`${bookedCount} cita${bookedCount !== 1 ? 's' : ''}`);
+          if (available > 0) titleParts.push(`${available} horario${available !== 1 ? 's' : ''} libre${available !== 1 ? 's' : ''}`);
 
           return (
             <button
               key={key}
               onClick={() => onSelectDay(key)}
-              title={total > 0 ? `${total} cita${total !== 1 ? 's' : ''}` : undefined}
+              title={titleParts.length ? titleParts.join(' · ') : undefined}
               className={`relative aspect-square rounded-xl text-sm flex flex-col items-center justify-center gap-0.5 transition
                 ${isSelected ? 'bg-brand text-white font-bold shadow-sm' : isToday ? 'bg-brand-50 text-brand-dark font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
             >

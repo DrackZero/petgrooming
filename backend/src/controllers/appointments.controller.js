@@ -282,8 +282,10 @@ export const listAllAppointments = async (req, res, next) => {
   }
 };
 
-// GET /api/appointments/calendar?month=YYYY-MM  → resumen de citas por día del mes
-// (para pintar el calendario mensual del veterinario)
+// GET /api/appointments/calendar?month=YYYY-MM  → resumen por día del mes
+// (para pintar el calendario mensual del veterinario). Incluye tanto las
+// citas (agrupadas por estado) como las franjas libres ('disponible') de
+// los días donde ya definió horario pero nadie ha agendado todavía.
 export const getCalendarSummary = async (req, res, next) => {
   try {
     const month = req.query.month || new Date().toISOString().slice(0, 7);
@@ -296,6 +298,11 @@ export const getCalendarSummary = async (req, res, next) => {
        JOIN availability_slots sl ON sl.id = a.slot_id
        WHERE sl.vet_id = $1 AND to_char(sl.starts_at, 'YYYY-MM') = $2
        GROUP BY day, a.status
+       UNION ALL
+       SELECT sl.starts_at::date AS day, 'disponible' AS status, COUNT(*)::int AS count
+       FROM availability_slots sl
+       WHERE sl.vet_id = $1 AND sl.is_booked = false AND to_char(sl.starts_at, 'YYYY-MM') = $2
+       GROUP BY day
        ORDER BY day ASC`,
       [req.user.id, month]
     );
