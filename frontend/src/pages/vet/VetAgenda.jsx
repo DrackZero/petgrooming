@@ -4,6 +4,7 @@ import {
   getAllAppointments,
   getAvailableSlots,
   getCalendarSummary,
+  getClinicHours,
   createSlot,
   deleteSlot,
   updateAppointmentStatus,
@@ -33,6 +34,7 @@ export default function VetAgenda() {
   const [week, setWeek] = useState(startOfWeek(today));
   const [slots, setSlots] = useState([]);            // franjas libres propias
   const [loadingWeek, setLoadingWeek] = useState(true);
+  const [hours, setHours] = useState({ opens_at: '07:00:00', closes_at: '19:00:00' });
 
   const loadCalendar = useCallback(() => {
     const month = `${cursor.year}-${pad(cursor.month + 1)}`;
@@ -66,6 +68,7 @@ export default function VetAgenda() {
   useEffect(() => { loadCalendar(); }, [loadCalendar]);
   useEffect(() => { loadAgenda(); }, [loadAgenda]);
   useEffect(() => { loadWeek(); }, [loadWeek]);
+  useEffect(() => { getClinicHours().then(setHours).catch(() => {}); }, []);
   useEffect(() => { if (showAll) getAllAppointments().then(setAll).catch(() => {}); }, [showAll]);
 
   const changeWeek = (delta) => {
@@ -182,6 +185,8 @@ export default function VetAgenda() {
 
   const selectedDate = new Date(`${selectedDay}T00:00:00`);
   const isToday = selectedDay === toKey(today);
+  const openHour = Number(String(hours.opens_at).slice(0, 2));
+  const closeHour = Number(String(hours.closes_at).slice(0, 2));
 
   return (
     <div>
@@ -216,6 +221,8 @@ export default function VetAgenda() {
             onCreateSlot={addSlotAt}
             onDeleteSlot={removeSlot}
             onSelectAppointment={focusAppointment}
+            openHour={openHour}
+            closeHour={closeHour}
           />
 
           {/* Detalle del día tocado desde la rejilla */}

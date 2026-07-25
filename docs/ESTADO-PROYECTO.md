@@ -51,6 +51,7 @@ Esquema base en `backend/sql/schema.sql`. Migraciones incrementales:
 - `migration-008-password-reset.sql` — tabla `password_resets` (recuperación de contraseña, token hasheado de un solo uso, vence en 1 h) (aplicada)
 - `migration-009-ciclo-suscripcion.sql` — `clinics.subscription_expires_at` + tabla `subscription_payments` (la suscripción ahora vence y se renueva) (aplicada)
 - `migration-010-consultas.sql` — tabla `consultations` (historia clínica estructurada: motivo, síntomas, diagnóstico, tratamiento, medicamentos) (aplicada y verificada en producción)
+- `migration-011-horario-clinica.sql` — `clinics.opens_at` / `closes_at` (horario de atención configurable por clínica, 07:00–19:00 por defecto). **Aplicada en local, PENDIENTE en Neon.**
 
 **Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro ;
 clinics.subscription_expires_at = vigencia (NULL = nunca pagó).
@@ -83,6 +84,7 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Consultas clínicas estructuradas** (`consultations`): cada atención con motivo, síntomas, diagnóstico, tratamiento y medicamentos en campos separados. Las registra el veterinario desde "🩺 Consulta" en su panel de mascotas; el dueño las ve en solo lectura.
 - **Historia clínica en PDF** (`GET /api/pets/:id/history.pdf`, PDFKit): documento con membrete, ficha del paciente, propietario, consultas, vacunas y citas, con pie de confidencialidad y numeración. Lo descargan el veterinario y el dueño; la descarga del vet queda en la bitácora break-glass.
 - **Chat de emergencia en vivo** cliente↔veterinario por WebSocket (`/ws`, auth por cookie).
+- **Horario de atención por clínica** (`clinics.opens_at/closes_at`): el gerente lo configura desde "✏️ Editar" en su panel; sus veterinarios solo pueden abrir franjas dentro de ese rango. `createSlot` valida además que la franja sea futura y que el fin sea posterior al inicio (antes no validaba NADA). **La comparación de horas se hace en SQL con `AT TIME ZONE 'America/Bogota'`**, no con el reloj de Node: Render corre en UTC y compararlo directo daría 5 horas de desfase.
 - **Horario semanal interactivo estilo Q10** (`components/WeekSchedule.jsx`): rejilla de horas × días. Celda vacía → crea franja de 1 h; franja libre → la elimina; cita → salta a su día en la agenda. Se usa en Agenda (selector Semana/Mes) y en Horarios, donde reemplazó la lista plana. Las celdas pasadas no permiten crear.
 - **Calendario mensual** del veterinario (puntos por estado), ahora como vista alternativa dentro de Agenda.
 - **Gráficas** sin dependencias externas (`BarList.jsx`, `TrendBars.jsx`): recaudo de 6 meses y distribución de clínicas en el panel admin, citas por estado en reportes del gerente.
@@ -91,10 +93,15 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
 
-## Pruebas (todas en verde, 224 casos)
+## Pruebas (todas en verde, 243 casos)
 
 En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
-- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset, subscription-cycle, consultations-pdf
+- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset, subscription-cycle, consultations-pdf, clinic-hours
+
+**Ojo con las horas en las pruebas:** desde que existe el horario de atención, toda prueba que
+cree franjas debe usar el helper `slotAt(hora, dias)`, que ancla la hora a `-05:00` (Colombia).
+Usar `new Date(Date.now() + 86400000)` crea la franja "mañana a esta misma hora" y la suite
+falla si se ejecuta de noche o en una máquina con otro huso. Verificado con `TZ=UTC`.
 
 ## Cuentas semilla (tras la limpieza, son las ÚNICAS en producción)
 

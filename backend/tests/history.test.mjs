@@ -32,6 +32,17 @@ const session = () => {
   };
 };
 
+// Franja en una fecha futura a una hora FIJA dentro del horario de atención
+// de la clínica (07:00–19:00 por defecto). La hora se ancla explícitamente a
+// la zona de Colombia (-05:00), que es contra la que valida el backend, para
+// que la prueba no dependa ni del momento del día ni del huso horario de la
+// máquina que la ejecuta.
+const slotAt = (hora = 9, dias = 1) => {
+  const d = new Date(Date.now() + dias * 86400000);
+  const p = (n) => String(n).padStart(2, '0');
+  return new Date(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hora)}:00:00-05:00`);
+};
+
 const main = async () => {
   const vet = session(), ana = session(), beto = session();
   const stamp = Date.now();
@@ -59,7 +70,7 @@ const main = async () => {
   check('Notas de vacuna guardadas', vacs.find(v => v.name === 'Parvovirus')?.notes === 'Refuerzo anual');
 
   console.log('\n══ 3. CITA CON NOTAS DE CONSULTA ══');
-  const t = new Date(Date.now() + 86400000);
+  const t = slotAt(9);
   const t2 = new Date(t.getTime() + 3600000);
   const slot = (await vet('POST', '/appointments/slots', { starts_at: t.toISOString(), ends_at: t2.toISOString() })).data;
   const appt = (await ana('POST', '/appointments', { pet_id: rocky.id, slot_id: slot.id })).data;

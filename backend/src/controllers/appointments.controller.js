@@ -154,6 +154,29 @@ export const cancelAppointment = async (req, res, next) => {
 
 // ─── VETERINARIO ────────────────────────────────────────────
 
+// Zona horaria de referencia del negocio. Las horas se comparan en hora
+// local de Colombia y NO con el reloj del servidor, que en Render es UTC.
+const TZ = 'America/Bogota';
+
+// Horario de atención de la clínica del veterinario. Si no tiene clínica
+// asignada se usa un rango por defecto razonable.
+const clinicHours = async (userId) => {
+  const { rows } = await query(
+    `SELECT c.name, c.opens_at, c.closes_at
+     FROM users u LEFT JOIN clinics c ON c.id = u.clinic_id
+     WHERE u.id = $1`,
+    [userId]
+  );
+  const r = rows[0] || {};
+  return {
+    name: r.name || null,
+    opens_at: r.opens_at || '07:00:00',
+    closes_at: r.closes_at || '19:00:00',
+  };
+};
+
+const hhmm = (t) => String(t).slice(0, 5);
+
 // POST /api/appointments/slots  → crear horario disponible
 export const createSlot = async (req, res, next) => {
   try {
@@ -161,11 +184,49 @@ export const createSlot = async (req, res, next) => {
     if (!starts_at || !ends_at) {
       return res.status(400).json({ message: 'starts_at y ends_at son obligatorios' });
     }
+
+    const start = new Date(starts_at), end = new Date(ends_at);
+    if (isNaN(start) || isNaN(end)) {
+      return res.status(400).json({ message: 'Fechas inválidas' });
+    }
+    if (end <= start) {
+      return res.status(400).json({ message: 'La hora de fin debe ser posterior a la de inicio' });
+    }
+    if (start < new Date()) {
+      return res.status(400).json({ message: 'No se pueden crear franjas en el pasado' });
+    }
+
+    // Hora local de la franja, calculada por PostgreSQL para no depender
+    // de la zona horaria del proceso de Node.
+    const local = await query(
+      `SELECT ($1::timestamptz AT TIME ZONE $3)::time AS inicio,
+              ($2::timestamptz AT TIME ZONE $3)::time AS fin`,
+      [start.toISOString(), end.toISOString(), TZ]
+    );
+    const { inicio, fin } = local.rows[0];
+    const horario = await clinicHours(req.user.id);
+
+    if (inicio < horario.opens_at || fin > horario.closes_at) {
+      return res.status(400).json({
+        message: `Fuera del horario de atención de tu veterinaria (${hhmm(horario.opens_at)} a ${hhmm(horario.closes_at)}). El gerente puede ampliarlo desde los datos de la clínica.`,
+      });
+    }
+
     const { rows } = await query(
       'INSERT INTO availability_slots (vet_id, starts_at, ends_at) VALUES ($1, $2, $3) RETURNING *',
       [req.user.id, starts_at, ends_at]
     );
     res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/appointments/clinic-hours  → horario de atención de MI clínica
+// (lo usa la rejilla semanal para saber qué franjas dibujar)
+export const getClinicHours = async (req, res, next) => {
+  try {
+    res.json(await clinicHours(req.user.id));
   } catch (err) {
     next(err);
   }
@@ -205,6 +266,16 @@ export const createSlotsBulk = async (req, res, next) => {
     const endMin = toMin(day_end);
     if (!(startMin < endMin)) {
       return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la de fin' });
+    }
+
+    // La jornada debe caber dentro del horario de atención de la clínica.
+    const horario = await clinicHours(req.user.id);
+    const opensMin = toMin(horario.opens_at);
+    const closesMin = toMin(horario.closes_at);
+    if (startMin < opensMin || endMin > closesMin) {
+      return res.status(400).json({
+        message: `Tu veterinaria atiende de ${hhmm(horario.opens_at)} a ${hhmm(horario.closes_at)}. Ajusta la jornada a ese horario o pide al gerente que lo amplíe.`,
+      });
     }
 
     // Horarios ya existentes DEL MISMO VETERINARIO en el rango (UC-19):

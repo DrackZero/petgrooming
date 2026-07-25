@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  getMyClinic, paySubscription, confirmMockSubscription, getMyPayments, downgradePlan,
+  getMyClinic, updateMyClinic, paySubscription, confirmMockSubscription, getMyPayments, downgradePlan,
 } from '../../api/gerente.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { formatCOP } from '../../utils/format.js';
@@ -43,6 +43,8 @@ export default function GerenteHome() {
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [paying, setPaying] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(null);
 
   const load = () => {
     getMyClinic().then(setClinic).catch(() => setError('No se pudo cargar tu veterinaria'));
@@ -68,6 +70,31 @@ export default function GerenteHome() {
       setError(err.response?.data?.message || 'No fue posible completar el pago');
     } finally {
       setPaying('');
+    }
+  };
+
+  // Abre el formulario con los datos actuales de la clínica.
+  const startEditing = () => {
+    setForm({
+      name: clinic.name || '',
+      address: clinic.address || '',
+      phone: clinic.phone || '',
+      opens_at: String(clinic.opens_at || '07:00:00').slice(0, 5),
+      closes_at: String(clinic.closes_at || '19:00:00').slice(0, 5),
+    });
+    setEditing(true);
+  };
+
+  const saveClinic = async (e) => {
+    e.preventDefault();
+    setError(''); setMsg('');
+    try {
+      const updated = await updateMyClinic(form);
+      setClinic({ ...clinic, ...updated });
+      setEditing(false);
+      setMsg('Datos de la veterinaria actualizados ✓');
+    } catch (err) {
+      setError(err.response?.data?.message || 'No fue posible guardar los cambios');
     }
   };
 
@@ -98,10 +125,65 @@ export default function GerenteHome() {
             {clinic.address && <p className="text-sm text-slate-500">{clinic.address}</p>}
             {clinic.phone && <p className="text-sm text-slate-500">📞 {clinic.phone}</p>}
           </div>
-          <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${statusStyle[clinic.status] || ''}`}>
-            {clinic.status}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${statusStyle[clinic.status] || ''}`}>
+              {clinic.status}
+            </span>
+            <button
+              onClick={startEditing}
+              className="text-xs font-semibold px-3 py-1 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+            >
+              ✏️ Editar
+            </button>
+          </div>
         </div>
+
+        <p className="text-sm text-slate-500 mt-2">
+          🕐 Atiende de <strong>{String(clinic.opens_at || '07:00').slice(0, 5)}</strong> a{' '}
+          <strong>{String(clinic.closes_at || '19:00').slice(0, 5)}</strong>
+        </p>
+
+        {/* Edición de los datos y el horario de atención */}
+        {editing && form && (
+          <form onSubmit={saveClinic} className="mt-4 border-t border-slate-100 pt-4 grid sm:grid-cols-2 gap-3 animate-slide-up">
+            <label className="text-sm sm:col-span-2">
+              Nombre de la veterinaria
+              <input required className="border rounded-lg p-2 w-full mt-1"
+                value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              Dirección
+              <input className="border rounded-lg p-2 w-full mt-1"
+                value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              Teléfono
+              <input className="border rounded-lg p-2 w-full mt-1"
+                value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              Hora de apertura
+              <input type="time" required className="border rounded-lg p-2 w-full mt-1"
+                value={form.opens_at} onChange={(e) => setForm({ ...form, opens_at: e.target.value })} />
+            </label>
+            <label className="text-sm">
+              Hora de cierre
+              <input type="time" required className="border rounded-lg p-2 w-full mt-1"
+                value={form.closes_at} onChange={(e) => setForm({ ...form, closes_at: e.target.value })} />
+            </label>
+            <p className="text-xs text-slate-400 sm:col-span-2">
+              Tus veterinarios solo podrán abrir franjas de atención dentro de este horario.
+            </p>
+            <div className="flex gap-2 sm:col-span-2">
+              <button className="flex-1 bg-brand text-white rounded-full py-2 font-semibold hover:bg-brand-dark transition">
+                Guardar cambios
+              </button>
+              <button type="button" onClick={() => setEditing(false)} className="px-4 rounded-full bg-slate-100 hover:bg-slate-200 transition">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="grid grid-cols-3 gap-3 mt-5">
           <div className="bg-slate-50 rounded-xl p-4">

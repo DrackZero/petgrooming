@@ -19,6 +19,8 @@ export const getAgenda = (date) =>
   api.get('/appointments/agenda', { params: { date } }).then((r) => r.data);
 export const getCalendarSummary = (month) =>
   api.get('/appointments/calendar', { params: { month } }).then((r) => r.data);
+export const getClinicHours = () =>
+  api.get('/appointments/clinic-hours').then((r) => r.data);
 export const vetCreateAppointment = (data) =>
   api.post('/appointments/vet', data).then((r) => r.data);
 export const updateAppointmentStatus = (id, status, notes) =>

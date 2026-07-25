@@ -33,6 +33,17 @@ const db = new pg.Pool(
     : { host: process.env.PGHOST, port: process.env.PGPORT, user: process.env.PGUSER, password: process.env.PGPASSWORD, database: process.env.PGDATABASE }
 );
 
+// Franja en una fecha futura a una hora FIJA dentro del horario de atención
+// de la clínica (07:00–19:00 por defecto). La hora se ancla explícitamente a
+// la zona de Colombia (-05:00), que es contra la que valida el backend, para
+// que la prueba no dependa ni del momento del día ni del huso horario de la
+// máquina que la ejecuta.
+const slotAt = (hora = 9, dias = 1) => {
+  const d = new Date(Date.now() + dias * 86400000);
+  const p = (n) => String(n).padStart(2, '0');
+  return new Date(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hora)}:00:00-05:00`);
+};
+
 const main = async () => {
   const admin = session(), gerente = session();
   const stamp = Date.now();
@@ -70,7 +81,7 @@ const main = async () => {
   console.log('\n══ 3. EL VET APROBADO YA OPERA (clínica activa) ══');
   const vetS = session();
   await vetS('POST', '/auth/login', { email: `vetb${stamp}@test.com`, password: 'v123456' });
-  const t = new Date(Date.now() + 8.64e7).toISOString(), t2 = new Date(Date.now() + 9e7).toISOString();
+  const t = slotAt(9).toISOString(), t2 = slotAt(10).toISOString();
   check('Crea horario en su clínica activa', (await vetS('POST', '/appointments/slots', { starts_at: t, ends_at: t2 })).status === 201);
 
   console.log('\n══ 4. PERMISOS ENTRE CLINICAS ══');

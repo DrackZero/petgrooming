@@ -38,6 +38,8 @@ export default function WeekSchedule({
   onDeleteSlot,         // (slot) => void   franja libre
   onSelectAppointment,  // (cita) => void   cita agendada
   loading = false,
+  openHour = 7,         // horario de atención de la clínica
+  closeHour = 19,
 }) {
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => {
@@ -48,15 +50,20 @@ export default function WeekSchedule({
     [weekStart]
   );
 
-  // Rango horario: se ajusta a lo que haya en la semana, con 7–19 por defecto.
+  // El rango visible es el horario de atención de la clínica. Solo se amplía
+  // si hay registros fuera de él (franjas o citas antiguas creadas antes de
+  // fijar el horario): nunca se ocultan datos que el veterinario deba gestionar.
   const [firstHour, lastHour] = useMemo(() => {
     const hours = [...slots, ...appointments]
       .map((x) => new Date(x.starts_at))
       .filter((d) => d >= days[0] && d < new Date(days[6].getTime() + 86400000))
       .map((d) => d.getHours());
-    if (!hours.length) return [7, 19];
-    return [Math.min(7, ...hours), Math.max(19, ...hours.map((h) => h + 1))];
-  }, [slots, appointments, days]);
+    // Las filas son bloques de una hora: la última es la que TERMINA al cerrar
+    // (con cierre a las 19:00, la última fila es 18:00–19:00).
+    const lastOpen = Math.max(openHour, closeHour - 1);
+    if (!hours.length) return [openHour, lastOpen];
+    return [Math.min(openHour, ...hours), Math.max(lastOpen, ...hours)];
+  }, [slots, appointments, days, openHour, closeHour]);
 
   const hours = useMemo(
     () => Array.from({ length: lastHour - firstHour + 1 }, (_, i) => firstHour + i),
@@ -160,11 +167,14 @@ export default function WeekSchedule({
                   const items = byCell[key] || [];
                   const isPast = cellDate < now;
                   const isToday = sameDay(d, today);
+                  const isClosed = h < openHour || h >= closeHour; // fuera del horario de atención
 
                   return (
                     <div
                       key={di}
-                      className={`min-h-[42px] p-1 border-l border-slate-100 space-y-1 ${isToday ? 'bg-brand-50/40' : ''}`}
+                      className={`min-h-[42px] p-1 border-l border-slate-100 space-y-1 ${
+                        isClosed ? 'bg-slate-50/80' : isToday ? 'bg-brand-50/40' : ''
+                      }`}
                     >
                       {items.map(({ kind, item }) =>
                         kind === 'slot' ? (
@@ -189,8 +199,9 @@ export default function WeekSchedule({
                         )
                       )}
 
-                      {/* Celda vacía: crear franja (no se permite en el pasado) */}
-                      {!items.length && !isPast && onCreateSlot && (
+                      {/* Celda vacía: crear franja. No se permite en el pasado
+                          ni fuera del horario de atención de la clínica. */}
+                      {!items.length && !isPast && !isClosed && onCreateSlot && (
                         <button
                           onClick={() => onCreateSlot(cellDate)}
                           title={`Crear franja de atención el ${d.getDate()} a las ${hourLabel(h)}`}
@@ -219,7 +230,12 @@ export default function WeekSchedule({
             {s}
           </span>
         ))}
-        <span className="ml-auto text-slate-400">Toca una celda vacía para abrir una franja</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-slate-100 border border-slate-200" /> Fuera de horario
+        </span>
+        <span className="ml-auto text-slate-400">
+          Atención de {String(openHour).padStart(2, '0')}:00 a {String(closeHour).padStart(2, '0')}:00
+        </span>
       </div>
     </div>
   );

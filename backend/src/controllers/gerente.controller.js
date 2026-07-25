@@ -33,15 +33,30 @@ export const getMyClinic = async (req, res, next) => {
   }
 };
 
-// PUT /api/gerente/clinic  → editar datos de la clínica
+// PUT /api/gerente/clinic  → editar datos y horario de atención de la clínica
 export const updateMyClinic = async (req, res, next) => {
   try {
-    const { name, address, phone } = req.body;
+    const { name, address, phone, opens_at, closes_at } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: 'El nombre es obligatorio' });
+
+    // El horario define qué franjas pueden abrir los veterinarios.
+    const isHour = (t) => /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(t);
+    if (opens_at !== undefined || closes_at !== undefined) {
+      if (!isHour(opens_at) || !isHour(closes_at)) {
+        return res.status(400).json({ message: 'Horario inválido (usa el formato HH:MM)' });
+      }
+      if (opens_at >= closes_at) {
+        return res.status(400).json({ message: 'La hora de apertura debe ser anterior a la de cierre' });
+      }
+    }
+
     const { rows } = await query(
-      `UPDATE clinics SET name = $1, address = $2, phone = $3
-       WHERE manager_id = $4 RETURNING *`,
-      [name.trim(), address || null, phone || null, req.user.id]
+      `UPDATE clinics
+       SET name = $1, address = $2, phone = $3,
+           opens_at  = COALESCE($4::time, opens_at),
+           closes_at = COALESCE($5::time, closes_at)
+       WHERE manager_id = $6 RETURNING *`,
+      [name.trim(), address || null, phone || null, opens_at || null, closes_at || null, req.user.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
     res.json(rows[0]);

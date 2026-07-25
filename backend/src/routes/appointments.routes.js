@@ -13,6 +13,7 @@ import {
   getAgenda,
   vetCreateAppointment,
   updateAppointmentStatus,
+  getClinicHours,
 } from '../controllers/appointments.controller.js';
 import { authRequired } from '../middlewares/auth.middleware.js';
 import { vetOnly, requireActiveClinic } from '../middlewares/role.middleware.js';
@@ -25,6 +26,7 @@ router.use(authRequired);
 router.get('/all', vetOnly, listAllAppointments);
 router.get('/calendar', vetOnly, getCalendarSummary);
 router.get('/agenda', vetOnly, getAgenda);
+router.get('/clinic-hours', vetOnly, getClinicHours);
 router.post('/slots', vetOnly, requireActiveClinic, createSlot);
 router.post('/slots/bulk', vetOnly, requireActiveClinic, createSlotsBulk);
 router.delete('/slots/:id', vetOnly, requireActiveClinic, deleteSlot);

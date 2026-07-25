@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  getAvailableSlots, getAllAppointments, createSlot, createSlotsBulk, deleteSlot,
+  getAvailableSlots, getAllAppointments, createSlot, createSlotsBulk, deleteSlot, getClinicHours,
 } from '../../api/appointments.js';
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
@@ -37,6 +37,17 @@ export default function VetSlots() {
   const [error, setError] = useState('');
   const [week, setWeek] = useState(startOfWeek(new Date()));
   const [loading, setLoading] = useState(true);
+  const [hours, setHours] = useState({ opens_at: '07:00:00', closes_at: '19:00:00' });
+
+  // El horario de la clínica acota la jornada que el veterinario puede definir.
+  useEffect(() => {
+    getClinicHours()
+      .then((h) => {
+        setHours(h);
+        setBulk((b) => ({ ...b, day_start: String(h.opens_at).slice(0, 5), day_end: String(h.closes_at).slice(0, 5) }));
+      })
+      .catch(() => {});
+  }, []);
 
   // mine=1: cada veterinario ve y gestiona solo SUS horarios.
   const load = () => {
@@ -126,6 +137,10 @@ export default function VetSlots() {
           <p className="text-sm text-slate-500">
             Selecciona los días que trabajas y tu horario: se generan todas las franjas de una vez.
           </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Tu veterinaria atiende de <strong>{String(hours.opens_at).slice(0, 5)}</strong> a{' '}
+            <strong>{String(hours.closes_at).slice(0, 5)}</strong>. El gerente puede cambiar este horario.
+          </p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
@@ -164,12 +179,16 @@ export default function VetSlots() {
         <div className="grid sm:grid-cols-3 gap-3">
           <label className="text-sm">
             Inicio de jornada
-            <input type="time" required className="border rounded-lg p-2 w-full mt-1"
+            <input type="time" required
+              min={String(hours.opens_at).slice(0, 5)} max={String(hours.closes_at).slice(0, 5)}
+              className="border rounded-lg p-2 w-full mt-1"
               value={bulk.day_start} onChange={(e) => setBulk({ ...bulk, day_start: e.target.value })} />
           </label>
           <label className="text-sm">
             Fin de jornada
-            <input type="time" required className="border rounded-lg p-2 w-full mt-1"
+            <input type="time" required
+              min={String(hours.opens_at).slice(0, 5)} max={String(hours.closes_at).slice(0, 5)}
+              className="border rounded-lg p-2 w-full mt-1"
               value={bulk.day_end} onChange={(e) => setBulk({ ...bulk, day_end: e.target.value })} />
           </label>
           <Tooltip tip="Cuánto dura cada cita: define cada cuánto se crea una franja dentro de tu jornada" side="top">
@@ -237,6 +256,8 @@ export default function VetSlots() {
         onWeekChange={changeWeek}
         onCreateSlot={addSlotAt}
         onDeleteSlot={removeSlotFromGrid}
+        openHour={Number(String(hours.opens_at).slice(0, 2))}
+        closeHour={Number(String(hours.closes_at).slice(0, 2))}
       />
     </div>
   );

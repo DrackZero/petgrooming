@@ -46,6 +46,17 @@ const db = new pg.Pool(
       }
 );
 
+// Franja en una fecha futura a una hora FIJA dentro del horario de atención
+// de la clínica (07:00–19:00 por defecto). La hora se ancla explícitamente a
+// la zona de Colombia (-05:00), que es contra la que valida el backend, para
+// que la prueba no dependa ni del momento del día ni del huso horario de la
+// máquina que la ejecuta.
+const slotAt = (hora = 9, dias = 1) => {
+  const d = new Date(Date.now() + dias * 86400000);
+  const p = (n) => String(n).padStart(2, '0');
+  return new Date(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(hora)}:00:00-05:00`);
+};
+
 const main = async () => {
   const admin = session(), vet1 = session(), cli = session();
   const stamp = Date.now();
@@ -77,7 +88,7 @@ const main = async () => {
   await vet2('POST', '/auth/login', { email: `drnorte${stamp}@test.com`, password: 'n123456' });
 
   console.log('\n══ 3. EL CLIENTE VE LA CLINICA AL ELEGIR ══');
-  const t = new Date(Date.now() + 86400000), t2 = new Date(t.getTime() + 3600000);
+  const t = slotAt(9), t2 = new Date(t.getTime() + 3600000);
   const slot = (await vet2('POST', '/appointments/slots', { starts_at: t.toISOString(), ends_at: t2.toISOString() })).data;
   const slots = (await cli('GET', '/appointments/slots')).data;
   const visto = slots.find((s) => s.id === slot.id);

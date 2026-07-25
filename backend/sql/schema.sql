@@ -43,8 +43,11 @@ CREATE TABLE clinics (
     manager_id    INTEGER,    -- FK a users(id); se enlaza tras crear el gerente
     store_enabled BOOLEAN     NOT NULL DEFAULT false,       -- tienda activada (solo plan Pro)
     subscription_expires_at TIMESTAMPTZ,                    -- vigencia; NULL = nunca ha pagado
+    opens_at      TIME        NOT NULL DEFAULT '07:00',     -- horario de atención de la clínica
+    closes_at     TIME        NOT NULL DEFAULT '19:00',
     is_active     BOOLEAN     NOT NULL DEFAULT true,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT clinics_horario_valido CHECK (opens_at < closes_at)
 );
 
 -- 0b) SUBSCRIPTION_PAYMENTS (historial real de cobros de suscripción)
