@@ -39,6 +39,33 @@ export const sendPasswordReset = (to, { name, resetUrl }) =>
            <p style="color:#64748b;font-size:13px">Si no fuiste tú, ignora este correo: tu contraseña seguirá igual.</p>`,
   });
 
+// Plantilla: comprobante de pago de la suscripción.
+export const sendSubscriptionReceipt = (to, { name, clinicName, plan, amount, expiresAt }) =>
+  sendEmail({
+    to,
+    subject: `Pago recibido — suscripción ${plan} de ${clinicName} 🏥`,
+    html: `<h2>¡Gracias, ${name}!</h2>
+           <p>Recibimos el pago de la suscripción de <strong>${clinicName}</strong>.</p>
+           <ul>
+             <li>Plan: <strong style="text-transform:capitalize">${plan}</strong></li>
+             <li>Valor: <strong>$ ${Number(amount).toLocaleString('es-CO')} COP</strong></li>
+             <li>Tu veterinaria está activa hasta el <strong>${expiresAt}</strong></li>
+           </ul>
+           <p style="color:#64748b;font-size:13px">Te avisaremos antes de que venza para que renueves sin interrupciones.</p>`,
+  });
+
+// Plantilla: suspensión por vencimiento de la suscripción.
+export const sendSubscriptionSuspended = (to, { name, clinicName }) =>
+  sendEmail({
+    to,
+    subject: `Tu suscripción venció — ${clinicName} ⚠️`,
+    html: `<h2>Hola, ${name}</h2>
+           <p>La suscripción de <strong>${clinicName}</strong> venció, así que su servicio quedó
+              <strong>suspendido</strong>: tus veterinarios no pueden atender y tu tienda no es visible.</p>
+           <p>Puedes reactivarla al instante renovando tu plan desde el panel de tu veterinaria.</p>
+           <p style="color:#64748b;font-size:13px">Tus datos, historiales y citas están intactos: se restablecen apenas renueves.</p>`,
+  });
+
 // Plantilla: confirmación de cita.
 export const sendAppointmentConfirmation = (to, { petName, date }) =>
   sendEmail({

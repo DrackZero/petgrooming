@@ -20,11 +20,14 @@ SaaS multi-clínica por suscripción para veterinarias y peluquerías de mascota
 ## Modelo de suscripción
 
 1. El gerente se registra con su veterinaria → nace `pendiente` en plan Básico.
-2. Paga la suscripción por Wompi (Básico $60.000 / Pro $150.000 COP/mes) → el webhook activa la clínica.
-3. El plan Pro habilita tienda y cursos propios; bajar a Básico es inmediato y los desactiva.
-4. Candado: los veterinarios de una clínica no activa no pueden operar y sus horarios no se ofrecen.
+2. Paga la suscripción (Básico $60.000 / Pro $150.000 COP/mes) y la clínica se activa con una vigencia de 30 días.
+3. Cada pago queda en `subscription_payments`; renovar antes de vencer **suma** días al periodo restante.
+4. Al vencer, la clínica se suspende sola: sus veterinarios no pueden operar, sus horarios no se ofrecen y su tienda se oculta. Renovar la reactiva al instante.
+5. El plan Pro habilita tienda y cursos propios; bajar a Básico es inmediato y los desactiva.
 
-La Wompi de la plataforma cobra solo suscripciones; las tiendas de las clínicas operan en modo simulado (cada clínica integrará su propia pasarela a futuro).
+El cobro admite dos modos: **Wompi real** (Web Checkout, la clínica se activa desde el webhook) o **simulado** (`SUBSCRIPTION_MOCK=true`, el gerente confirma el pago sin pasarela). Las tiendas de las clínicas operan siempre en modo simulado — cada clínica integrará su propia pasarela a futuro.
+
+El admin ve el **recaudo real del mes** frente al **proyectado**, los vencimientos próximos, y dispone de "vencer ahora" y "extender vigencia" para gestionar casos puntuales.
 
 ## Estructura
 
@@ -90,6 +93,7 @@ node tests/subscription-pay.test.mjs  # pago de suscripción por Wompi
 node tests/pets-limit.test.mjs        # límite de mascotas y solicitudes
 node tests/calendar-summary.test.mjs  # calendario mensual del veterinario
 node tests/password-reset.test.mjs    # recuperación de contraseña
+node tests/subscription-cycle.test.mjs # ciclo de vida de la suscripción
 ```
 
 ## API principal
@@ -131,6 +135,8 @@ Ver `backend/.env.example`. Resumen:
 | `RESEND_API_KEY`, `EMAIL_FROM` | Correos transaccionales |
 | `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` | Pasarela de pagos |
 | `ORDER_PENDING_TTL_MIN` | Minutos antes de expirar un pedido sin pagar |
+| `SUBSCRIPTION_MOCK` | `true` = el gerente paga la suscripción en modo simulado (sin Wompi) |
+| `SUBSCRIPTION_DAYS` | Días que cubre cada pago de suscripción (30 por defecto) |
 
 ## Despliegue
 

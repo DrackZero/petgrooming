@@ -42,8 +42,22 @@ CREATE TABLE clinics (
     plan          VARCHAR(20) NOT NULL DEFAULT 'basico',    -- basico|pro
     manager_id    INTEGER,    -- FK a users(id); se enlaza tras crear el gerente
     store_enabled BOOLEAN     NOT NULL DEFAULT false,       -- tienda activada (solo plan Pro)
+    subscription_expires_at TIMESTAMPTZ,                    -- vigencia; NULL = nunca ha pagado
     is_active     BOOLEAN     NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 0b) SUBSCRIPTION_PAYMENTS (historial real de cobros de suscripción)
+CREATE TABLE subscription_payments (
+    id            SERIAL PRIMARY KEY,
+    clinic_id     INTEGER       NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+    plan          VARCHAR(20)   NOT NULL,
+    amount        NUMERIC(10,2) NOT NULL,
+    provider      VARCHAR(20)   NOT NULL DEFAULT 'wompi', -- wompi|mock
+    reference     VARCHAR(120),
+    period_start  TIMESTAMPTZ   NOT NULL,
+    period_end    TIMESTAMPTZ   NOT NULL,
+    paid_at       TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
 -- 1) USERS ──────────────────────────────────────────────────

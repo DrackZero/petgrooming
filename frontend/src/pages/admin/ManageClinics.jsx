@@ -4,6 +4,8 @@ import {
   createClinic,
   setClinicStatus,
   setClinicPlan,
+  expireClinicNow,
+  setClinicExpiry,
   getSubscription,
   getAccessLog,
 } from '../../api/admin.js';
@@ -11,6 +13,9 @@ import { formatCOP } from '../../utils/format.js';
 import Notification from '../../components/Notification.jsx';
 
 const empty = { name: '', address: '', phone: '' };
+
+// Días que faltan para el vencimiento (negativo si ya venció).
+const daysLeft = (expiresAt) => Math.ceil((new Date(expiresAt) - new Date()) / 86400000);
 
 const statusStyle = {
   activa: 'bg-emerald-50 text-emerald-700',
@@ -58,6 +63,22 @@ export default function ManageClinics() {
     load();
   };
 
+  // Corta el servicio al instante (útil para demostrar el ciclo sin esperar 30 días).
+  const expireNow = async (c) => {
+    if (!confirm(`¿Vencer la suscripción de "${c.name}" ahora mismo? Quedará suspendida.`)) return;
+    await expireClinicNow(c.id).catch(() => {});
+    setMsg(`Suscripción de "${c.name}" vencida — clínica suspendida`);
+    load();
+  };
+
+  // Extiende la vigencia N días desde hoy (regalar meses, corregir fechas).
+  const extend = async (c, days) => {
+    const date = new Date(Date.now() + days * 86400000).toISOString();
+    await setClinicExpiry(c.id, date).catch(() => {});
+    setMsg(`"${c.name}" vigente por ${days} días más`);
+    load();
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-1">Clínicas y suscripciones</h1>
@@ -68,15 +89,40 @@ export default function ManageClinics() {
 
       {/* Resumen de ingresos por suscripción */}
       {sub && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-brand text-white rounded-2xl p-4">
-            <p className="text-xs text-brand-100">Ingreso mensual</p>
-            <p className="text-2xl font-extrabold">{formatCOP(sub.monthlyRevenue)}</p>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div className="bg-brand text-white rounded-2xl p-4">
+              <p className="text-xs text-brand-100">Recaudado este mes</p>
+              <p className="text-2xl font-extrabold">{formatCOP(sub.collectedThisMonth || 0)}</p>
+              <p className="text-xs text-brand-100 mt-0.5">
+                {sub.paymentsThisMonth || 0} pago{sub.paymentsThisMonth !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <p className="text-xs text-slate-500">Proyectado mensual</p>
+              <p className="text-2xl font-extrabold text-slate-400">{formatCOP(sub.monthlyRevenue)}</p>
+              <p className="text-xs text-slate-400 mt-0.5">si todas renuevan</p>
+            </div>
+            <Stat label="Activas" value={sub.activas} />
+            <Stat label="Pendientes" value={sub.pendientes} />
+            <Stat label="Suspendidas" value={sub.suspendidas} />
           </div>
-          <Stat label="Activas" value={sub.activas} />
-          <Stat label="Pendientes" value={sub.pendientes} />
-          <Stat label="Suspendidas" value={sub.suspendidas} />
-        </div>
+
+          {sub.upcomingRenewals?.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+              <p className="font-bold text-amber-800 mb-2">
+                Vencen en los próximos 7 días ({sub.upcomingRenewals.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {sub.upcomingRenewals.map((c) => (
+                  <span key={c.id} className="bg-white rounded-full px-3 py-1 text-sm">
+                    🏥 {c.name} — {new Date(c.subscription_expires_at).toLocaleDateString('es-CO')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Alta manual de clínica */}
@@ -96,7 +142,8 @@ export default function ManageClinics() {
             <tr>
               <th className="p-3">Clínica</th><th className="p-3">Gerente</th>
               <th className="p-3">Vets</th><th className="p-3">Plan</th>
-              <th className="p-3">Estado</th><th className="p-3">Acciones</th>
+              <th className="p-3">Estado</th><th className="p-3">Vigencia</th>
+              <th className="p-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -119,18 +166,41 @@ export default function ManageClinics() {
                     {c.status}
                   </span>
                 </td>
+                <td className="p-3 whitespace-nowrap">
+                  {c.subscription_expires_at ? (
+                    <>
+                      <p className={daysLeft(c.subscription_expires_at) <= 0 ? 'text-red-600 font-semibold' : ''}>
+                        {new Date(c.subscription_expires_at).toLocaleDateString('es-CO')}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {daysLeft(c.subscription_expires_at) > 0
+                          ? `${daysLeft(c.subscription_expires_at)} días`
+                          : 'vencida'}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-slate-400">sin pagos</span>
+                  )}
+                </td>
                 <td className="p-3 space-x-2 whitespace-nowrap">
                   {c.status !== 'activa' && (
                     <button onClick={() => changeStatus(c, 'activa')} className="text-emerald-600 hover:underline">Activar</button>
                   )}
                   {c.status === 'activa' && (
-                    <button onClick={() => changeStatus(c, 'suspendida')} className="text-red-600 hover:underline">Suspender</button>
+                    <>
+                      <button onClick={() => expireNow(c)} className="text-red-600 hover:underline" title="Vence la suscripción al instante">
+                        Vencer ahora
+                      </button>
+                      <button onClick={() => extend(c, 30)} className="text-brand-dark hover:underline" title="Extiende la vigencia 30 días desde hoy">
+                        +30 días
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
             ))}
             {clinics.length === 0 && (
-              <tr><td colSpan="6" className="p-3 text-slate-500">Sin clínicas registradas.</td></tr>
+              <tr><td colSpan="7" className="p-3 text-slate-500">Sin clínicas registradas.</td></tr>
             )}
           </tbody>
         </table>

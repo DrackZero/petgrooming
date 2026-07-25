@@ -31,6 +31,10 @@ export const setClinicStatus = (id, status) =>
   api.patch(`/admin/clinics/${id}/status`, { status }).then((r) => r.data);
 export const setClinicPlan = (id, plan) =>
   api.patch(`/admin/clinics/${id}/plan`, { plan }).then((r) => r.data);
+export const expireClinicNow = (id) =>
+  api.patch(`/admin/clinics/${id}/expire`).then((r) => r.data);
+export const setClinicExpiry = (id, expires_at) =>
+  api.patch(`/admin/clinics/${id}/expiry`, { expires_at }).then((r) => r.data);
 export const getSubscription = () => api.get('/admin/subscription').then((r) => r.data);
 export const getAccessLog = () => api.get('/admin/access-log').then((r) => r.data);
 

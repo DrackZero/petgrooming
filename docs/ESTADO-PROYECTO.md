@@ -46,18 +46,27 @@ Esquema base en `backend/sql/schema.sql`. Migraciones incrementales:
 - `migration-005-gerente.sql` — rol `gerente`, clinics.status/plan/manager_id (aplicada)
 - `migration-006-tienda-clinica.sql` — products.clinic_id, courses.clinic_id, clinics.store_enabled (aplicada)
 - `migration-007-pet-requests.sql` — tabla `pet_requests` (límite de 1 mascota autoregistrada por cliente + solicitud de mascota adicional) (aplicada)
-- `migration-008-password-reset.sql` — tabla `password_resets` (recuperación de contraseña, token hasheado de un solo uso, vence en 1 h). **Aplicada en local, PENDIENTE en Neon.**
+- `migration-008-password-reset.sql` — tabla `password_resets` (recuperación de contraseña, token hasheado de un solo uso, vence en 1 h) (aplicada)
+- `migration-009-ciclo-suscripcion.sql` — `clinics.subscription_expires_at` + tabla `subscription_payments` (la suscripción ahora vence y se renueva). **Aplicada en local, PENDIENTE en Neon.**
 
-**Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro.
-Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000 COP/mes.
+**Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro ;
+clinics.subscription_expires_at = vigencia (NULL = nunca pagó).
+Precios (backend `services/subscription.service.js` PLAN_PRICES): básico 60.000, pro 150.000 COP/mes.
+**Ciclo de vida:** cada pago cubre `SUBSCRIPTION_DAYS` (30 por defecto) y queda en `subscription_payments`.
+Si aún hay vigencia, la renovación SUMA días (no reinicia). Al vencer, `expireOverdueSubscriptions()`
+suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que dependen del estado
+(igual patrón que `expireStaleOrders`). Renovar reactiva al instante.
 **Candado:** un veterinario solo opera si su clínica está `activa` (middleware `requireActiveClinic`).
 **Tienda:** el cliente solo ve productos de clínicas `activa` + `pro` + `store_enabled=true`.
 
 ## Flujo de negocio (ya funciona end-to-end)
 
 1. Gerente se registra (tipo "🏥 Veterinaria") → su clínica nace `pendiente` plan `basico`.
-2. Gerente paga suscripción por **Wompi real** (ref `SUB-<clinicId>-<plan>`) → el webhook activa la clínica con ese plan.
+2. Gerente paga la suscripción. **Modo simulado (actual, `SUBSCRIPTION_MOCK=true`):** confirma en
+   `POST /gerente/subscription/confirm` y la clínica se activa al instante. **Modo Wompi real:** ref
+   `SUB-<clinicId>-<plan>` → el webhook la activa. Ambos caminos pasan por `registerSubscriptionPayment()`.
    - También puede: mejorar a Pro (pago) o bajar a Básico (inmediato, apaga la tienda). Admin también puede cambiar plan/estado.
+   - Al vencer la vigencia la clínica se suspende sola; el gerente ve el aviso y renueva desde su panel.
 3. Veterinario se registra (tipo "🩺 Veterinario") eligiendo una clínica activa → el **gerente de esa clínica** lo aprueba.
 4. Veterinario define su jornada, registra mascotas/vacunas, atiende citas. También registra mascotas sin límite y aprueba/rechaza solicitudes de mascota adicional de los clientes (cualquier vet activo ve la cola global, igual que ya ve todo el historial portable).
 5. Cliente agenda (elige veterinario con disponibilidad), compra (pago **mock**), usa chat de urgencias. Registra él mismo su **primera mascota**; para una adicional debe enviar una **solicitud** que aprueba un veterinario (tabla `pet_requests`).
@@ -74,10 +83,10 @@ Precios (backend `admin.controller.js` PLAN_PRICES): básico 60.000, pro 150.000
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
 
-## Pruebas (todas en verde, ~185 casos)
+## Pruebas (todas en verde, 201 casos)
 
 En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
-- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset
+- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset, subscription-cycle
 
 ## Cuentas semilla (tras la limpieza, son las ÚNICAS en producción)
 
@@ -89,12 +98,17 @@ En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
 
 1. **Cambiar contraseñas por defecto** (`admin123`/`vet123`): son débiles (disparan el aviso de "contraseña filtrada" del navegador) y están en el repo. Generar hashes bcrypt nuevos, actualizar seed en `schema.sql`, dar SQL para Neon (`UPDATE users SET password_hash=... WHERE email=...`).
 2. **Actualizar el documento técnico** (`Petgrooming_Arquitectura_v*.docx` en Descargas y/o `PetGrooming_Informe_Tecnico.docx`) con TODO lo nuevo: 4 roles, suscripción, chat, calendario, multi-clínica, tienda por clínica. (El generador está en `docs/build-informe-tecnico.mjs` — quedó desactualizado, contempla hasta antes de multi-clínica.)
-3. **Futuro grande:** Wompi propio por clínica para sus tiendas (hoy mock) + cobro recurrente automático de la suscripción (hoy es pago único que activa; la suspensión por impago es manual del admin).
-4. **PetGrooming Yopal sin gerente:** sus 11 productos no son editables por nadie (no hay gerente). Si se quiere, asignarle un gerente o dejarlo como "tienda de plataforma".
+3. **Volver a Wompi real en la suscripción** cuando pase la entrega: quitar `SUBSCRIPTION_MOCK=true` de Render. El código de Wompi está intacto, solo está detrás del interruptor.
+4. **Futuro grande:** Wompi propio por clínica para sus tiendas (hoy mock) + cobro recurrente **automático** (hoy el vencimiento y la suspensión sí son automáticos, pero la renovación la dispara el gerente a mano; falta tokenizar el medio de pago con Wompi).
+5. **Avisos previos al vencimiento**: hoy se envía correo al pagar y al suspenderse; falta el recordatorio "te vence en 5 días".
+6. **PetGrooming Yopal sin gerente:** sus 11 productos no son editables por nadie (no hay gerente). Si se quiere, asignarle un gerente o dejarlo como "tienda de plataforma".
+7. **Correos solo llegan a la cuenta de Resend** mientras se use el remitente de prueba `onboarding@resend.dev`. Se resuelve verificando un dominio propio en Resend y cambiando `EMAIL_FROM`.
 
 ## Notas de decisiones tomadas
 
 - Gerente ≠ veterinario (carriles separados; el usuario fue explícito).
 - Tiendas de clínica en mock a propósito (cada clínica tendrá su Wompi a futuro); la Wompi de la plataforma es solo para cobrar suscripciones.
 - Los productos que crea el admin van a la clínica semilla (tienda de la plataforma).
+- **Suscripción en modo simulado para la entrega** (`SUBSCRIPTION_MOCK=true`): el gerente paga sin pasar por Wompi, para demostrar el ciclo sin gastar dinero real ni depender de la pasarela en vivo. El endpoint `/gerente/subscription/confirm` está bloqueado (403) si el modo simulado NO está activo, para que nunca se pueda activar gratis con Wompi real.
+- **Al vencer se suspende de inmediato** (sin periodo de gracia) y el admin tiene "Vencer ahora" / "+30 días" para demostrar el ciclo en vivo sin esperar 30 días. Ambas decisiones las tomó el usuario.
 - Límite de mascotas: el cliente autoregistra solo 1; para más, la solicitud la aprueba el **veterinario** (no el gerente) — el usuario delegó la decisión. Se eligió vet porque ya es quien gestiona mascotas/historial y las ve todas (portable entre clínicas); el gerente nunca toca datos clínicos. Cualquier vet activo ve la cola global de solicitudes (no hay clínica asignada al cliente).

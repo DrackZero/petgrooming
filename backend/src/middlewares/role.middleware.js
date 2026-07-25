@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { expireOverdueSubscriptions } from '../services/subscription.service.js';
 
 // Restringe el acceso según el rol del usuario autenticado.
 // Debe usarse SIEMPRE después de authRequired.
@@ -25,6 +26,10 @@ export const requireActiveClinic = async (req, res, next) => {
     const { rows } = await query('SELECT clinic_id FROM users WHERE id = $1', [req.user.id]);
     const clinicId = rows[0]?.clinic_id;
     if (!clinicId) return next();
+
+    // Suspende primero las suscripciones vencidas: el candado debe cerrarse
+    // en cuanto expira la vigencia, sin esperar una acción del admin.
+    await expireOverdueSubscriptions().catch(() => {});
 
     const c = await query('SELECT status FROM clinics WHERE id = $1', [clinicId]);
     if (c.rows[0]?.status !== 'activa') {

@@ -6,6 +6,10 @@ import {
   mockPayment,
 } from '../services/payment.service.js';
 import { sendEmail } from '../services/email.service.js';
+import {
+  registerSubscriptionPayment,
+  expireOverdueSubscriptions,
+} from '../services/subscription.service.js';
 
 // Sistema antiabandono: un pedido 'pendiente' que no se paga en N minutos
 // se cancela automáticamente y su stock vuelve al inventario.
@@ -47,6 +51,7 @@ export const expireStaleOrders = async () => {
 // con la tienda activada. Cada producto lleva el nombre de su clínica.
 export const listProducts = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {}); // oculta tiendas vencidas
     const { rows } = await query(
       `SELECT p.*, c.name AS clinic_name
        FROM products p
@@ -186,13 +191,16 @@ export const wompiWebhook = async (req, res, next) => {
     const tx = event.data?.transaction;
 
     // Pago de SUSCRIPCIÓN de una clínica (SUB-<clinicId>-<plan>).
+    // Activa la clínica y extiende su vigencia un periodo más.
     if (event.event === 'transaction.updated' && tx?.reference?.startsWith('SUB-')) {
       const [, clinicId, plan] = tx.reference.split('-');
-      if (tx.status === 'APPROVED' && ['basico', 'pro'].includes(plan)) {
-        await query(
-          `UPDATE clinics SET status = 'activa', plan = $1 WHERE id = $2`,
-          [plan, clinicId]
-        );
+      if (tx.status === 'APPROVED') {
+        await registerSubscriptionPayment({
+          clinicId,
+          plan,
+          provider: 'wompi',
+          reference: tx.reference,
+        });
       }
       return res.json({ received: true });
     }

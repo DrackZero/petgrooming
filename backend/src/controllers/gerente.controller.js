@@ -1,6 +1,11 @@
 import { query } from '../config/db.js';
-import { wompiEnabled, buildSubscriptionCheckout } from '../services/payment.service.js';
-import { PLAN_PRICES } from './admin.controller.js';
+import { buildSubscriptionCheckout } from '../services/payment.service.js';
+import {
+  PLAN_PRICES,
+  subscriptionMockEnabled,
+  registerSubscriptionPayment,
+  expireOverdueSubscriptions,
+} from '../services/subscription.service.js';
 
 // Devuelve el id de la clínica que dirige el gerente autenticado.
 const myClinicId = async (userId) => {
@@ -11,6 +16,7 @@ const myClinicId = async (userId) => {
 // GET /api/gerente/clinic  → la clínica del gerente autenticado
 export const getMyClinic = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {}); // el gerente ve el estado real
     const { rows } = await query(
       `SELECT c.*,
               (SELECT COUNT(*)::int FROM users u
@@ -134,8 +140,10 @@ export const setMyVetActive = async (req, res, next) => {
 
 // ─── Reportes de la clínica ─────────────────────────────────
 
-// POST /api/gerente/subscription/pay {plan}  → pagar la suscripción por Wompi
-// (Wompi de la plataforma). Al aprobarse, el webhook activa la clínica.
+// POST /api/gerente/subscription/pay {plan}  → iniciar el pago de la suscripción.
+// En modo simulado devuelve un pago mock que el gerente confirma en el paso
+// siguiente; con Wompi real devuelve los datos del Web Checkout y es el webhook
+// quien activa la clínica al aprobarse la transacción.
 export const paySubscription = async (req, res, next) => {
   try {
     const { plan } = req.body;
@@ -146,11 +154,65 @@ export const paySubscription = async (req, res, next) => {
 
     const price = PLAN_PRICES[plan];
 
-    if (!wompiEnabled()) {
-      // Sin Wompi (desarrollo): se informa que el pago es simulado.
-      return res.json({ payment: { provider: 'mock', mocked: true, plan, amount: price } });
+    if (subscriptionMockEnabled()) {
+      return res.json({
+        payment: {
+          provider: 'mock',
+          mocked: true,
+          plan,
+          amount: price,
+          reference: `SUB-${clinicId}-${plan}`,
+        },
+        plan,
+        amount: price,
+      });
     }
     res.json({ payment: buildSubscriptionCheckout(clinicId, plan, price), plan, amount: price });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/gerente/subscription/confirm {plan}  → confirma un pago SIMULADO.
+// Equivale a lo que hace el webhook de Wompi con un pago aprobado. Solo
+// disponible en modo simulado: con Wompi real, activar sin pagar sería un fraude.
+export const confirmMockSubscription = async (req, res, next) => {
+  try {
+    if (!subscriptionMockEnabled()) {
+      return res.status(403).json({ message: 'El pago simulado no está habilitado' });
+    }
+    const { plan } = req.body;
+    if (!PLAN_PRICES[plan]) return res.status(400).json({ message: 'Plan inválido' });
+
+    const clinicId = await myClinicId(req.user.id);
+    if (!clinicId) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+
+    const result = await registerSubscriptionPayment({
+      clinicId,
+      plan,
+      provider: 'mock',
+      reference: `SUB-${clinicId}-${plan}`,
+    });
+    if (!result) return res.status(400).json({ message: 'No fue posible registrar el pago' });
+
+    res.json({ clinic: result.clinic, payment: result.payment });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/gerente/subscription/payments  → historial de pagos de MI clínica
+export const listMyPayments = async (req, res, next) => {
+  try {
+    const clinicId = await myClinicId(req.user.id);
+    if (!clinicId) return res.status(404).json({ message: 'No tienes una veterinaria asignada' });
+    const { rows } = await query(
+      `SELECT id, plan, amount, provider, period_start, period_end, paid_at
+       FROM subscription_payments WHERE clinic_id = $1
+       ORDER BY paid_at DESC LIMIT 24`,
+      [clinicId]
+    );
+    res.json(rows);
   } catch (err) {
     next(err);
   }

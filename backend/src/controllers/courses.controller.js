@@ -1,8 +1,10 @@
 import { query } from '../config/db.js';
+import { expireOverdueSubscriptions } from '../services/subscription.service.js';
 
 // GET /api/courses  → cursos públicos: solo de clínicas Pro con tienda activa
 export const listCourses = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {}); // oculta cursos de clínicas vencidas
     const { rows } = await query(
       `SELECT co.*, c.name AS clinic_name
        FROM courses co

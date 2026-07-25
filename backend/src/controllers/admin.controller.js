@@ -1,5 +1,14 @@
 import { query } from '../config/db.js';
 import { expireStaleOrders } from './orders.controller.js';
+import {
+  PLAN_PRICES,
+  VALID_PLANS,
+  subscriptionDays,
+  expireOverdueSubscriptions,
+} from '../services/subscription.service.js';
+
+// Se reexporta por compatibilidad: otros módulos importan PLAN_PRICES de aquí.
+export { PLAN_PRICES };
 
 // ─── Reportes / Dashboard ───────────────────────────────────
 // GET /api/admin/stats
@@ -201,14 +210,12 @@ export const listVets = async (req, res, next) => {
 
 // ─── Clínicas (modelo multi-clínica) ────────────────────────
 
-// Precio mensual de cada plan de suscripción (COP).
-export const PLAN_PRICES = { basico: 60000, pro: 150000 };
-const VALID_PLANS = Object.keys(PLAN_PRICES);
 const VALID_STATUS = ['pendiente', 'activa', 'suspendida'];
 
 // GET /api/admin/clinics  → clínicas con estado, plan, gerente y conteo de vets
 export const listClinics = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {}); // refleja vencimientos al vuelo
     const { rows } = await query(
       `SELECT c.*, m.name AS manager_name, m.email AS manager_email,
               (SELECT COUNT(*)::int FROM users u
@@ -229,8 +236,9 @@ export const createClinic = async (req, res, next) => {
     const { name, address, phone } = req.body;
     if (!name?.trim()) return res.status(400).json({ message: 'El nombre es obligatorio' });
     const { rows } = await query(
-      `INSERT INTO clinics (name, address, phone, status) VALUES ($1, $2, $3, 'activa') RETURNING *`,
-      [name.trim(), address || null, phone || null]
+      `INSERT INTO clinics (name, address, phone, status, subscription_expires_at)
+       VALUES ($1, $2, $3, 'activa', now() + ($4 || ' days')::interval) RETURNING *`,
+      [name.trim(), address || null, phone || null, subscriptionDays()]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -245,9 +253,18 @@ export const setClinicStatus = async (req, res, next) => {
     if (!VALID_STATUS.includes(status)) {
       return res.status(400).json({ message: 'Estado inválido' });
     }
+    // Al activar a mano se le concede un periodo de vigencia si no tiene
+    // (o ya venció); de lo contrario volvería a suspenderse enseguida.
     const { rows } = await query(
-      'UPDATE clinics SET status = $1 WHERE id = $2 RETURNING *',
-      [status, req.params.id]
+      `UPDATE clinics SET status = $1::text,
+              subscription_expires_at = CASE
+                WHEN $1::text = 'activa'
+                  AND (subscription_expires_at IS NULL OR subscription_expires_at < now())
+                THEN now() + ($3 || ' days')::interval
+                ELSE subscription_expires_at
+              END
+       WHERE id = $2 RETURNING *`,
+      [status, req.params.id, subscriptionDays()]
     );
     if (!rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
     res.json(rows[0]);
@@ -274,9 +291,50 @@ export const setClinicPlan = async (req, res, next) => {
   }
 };
 
+// PATCH /api/admin/clinics/:id/expire  → vencer la suscripción ahora mismo.
+// Herramienta del admin (y de la demo) para cortar el servicio al instante.
+export const expireClinicNow = async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `UPDATE clinics SET status = 'suspendida', store_enabled = false,
+              subscription_expires_at = now()
+       WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/admin/clinics/:id/expiry {expires_at}  → fijar la fecha de vencimiento
+// (regalar meses, corregir una fecha). Si queda en el futuro, reactiva la clínica.
+export const setClinicExpiry = async (req, res, next) => {
+  try {
+    const { expires_at } = req.body;
+    const date = new Date(expires_at);
+    if (!expires_at || isNaN(date)) {
+      return res.status(400).json({ message: 'Fecha de vencimiento inválida' });
+    }
+    const { rows } = await query(
+      `UPDATE clinics
+       SET subscription_expires_at = $1::timestamptz,
+           status = CASE WHEN $1::timestamptz > now() THEN 'activa' ELSE 'suspendida' END
+       WHERE id = $2 RETURNING *`,
+      [date.toISOString(), req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Clínica no encontrada' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/admin/subscription  → ingresos por suscripción (lo único que ve la plataforma)
 export const getSubscription = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {});
     const { rows } = await query(
       `SELECT plan, COUNT(*)::int AS count
        FROM clinics WHERE status = 'activa'
@@ -295,7 +353,33 @@ export const getSubscription = async (req, res, next) => {
          COUNT(*) FILTER (WHERE status = 'suspendida')::int  AS suspendidas
        FROM clinics`
     );
-    res.json({ monthlyRevenue, byPlan, planPrices: PLAN_PRICES, ...totals.rows[0] });
+
+    // Recaudo REAL del mes en curso (lo efectivamente cobrado), frente al
+    // proyectado de arriba (lo que facturarían las activas si todas pagaran).
+    const collected = await query(
+      `SELECT COALESCE(SUM(amount), 0)::float AS total, COUNT(*)::int AS payments
+       FROM subscription_payments
+       WHERE to_char(paid_at, 'YYYY-MM') = to_char(now(), 'YYYY-MM')`
+    );
+
+    // Vencimientos próximos: quién hay que cobrar en los siguientes 7 días.
+    const upcoming = await query(
+      `SELECT id, name, plan, subscription_expires_at
+       FROM clinics
+       WHERE status = 'activa' AND subscription_expires_at IS NOT NULL
+         AND subscription_expires_at < now() + interval '7 days'
+       ORDER BY subscription_expires_at ASC`
+    );
+
+    res.json({
+      monthlyRevenue,                          // proyectado
+      collectedThisMonth: collected.rows[0].total,
+      paymentsThisMonth: collected.rows[0].payments,
+      upcomingRenewals: upcoming.rows,
+      byPlan,
+      planPrices: PLAN_PRICES,
+      ...totals.rows[0],
+    });
   } catch (err) {
     next(err);
   }

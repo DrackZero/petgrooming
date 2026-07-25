@@ -17,9 +17,13 @@ export const setMyVetActive = (id, is_active) =>
 // Mis reportes
 export const getMyReports = () => api.get('/gerente/reports').then((r) => r.data);
 
-// Mi suscripción (pago por Wompi de la plataforma)
+// Mi suscripción (pago por Wompi de la plataforma, o simulado)
 export const paySubscription = (plan) =>
   api.post('/gerente/subscription/pay', { plan }).then((r) => r.data);
+export const confirmMockSubscription = (plan) =>
+  api.post('/gerente/subscription/confirm', { plan }).then((r) => r.data);
+export const getMyPayments = () =>
+  api.get('/gerente/subscription/payments').then((r) => r.data);
 export const downgradePlan = () =>
   api.post('/gerente/subscription/downgrade').then((r) => r.data);
 

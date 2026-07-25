@@ -6,7 +6,8 @@ import {
   listVetRequests, rejectVetRequest,
   listClients, setClientActive,
   listVets, setVetActive, setVetClinic,
-  listClinics, createClinic, setClinicStatus, setClinicPlan, getSubscription, getAccessLog,
+  listClinics, createClinic, setClinicStatus, setClinicPlan,
+  expireClinicNow, setClinicExpiry, getSubscription, getAccessLog,
   createProduct, updateProduct, deleteProduct,
   createCourse, updateCourse,
   listAllOrders,
@@ -42,6 +43,8 @@ router.get('/clinics', listClinics);
 router.post('/clinics', createClinic);
 router.patch('/clinics/:id/status', setClinicStatus);
 router.patch('/clinics/:id/plan', setClinicPlan);
+router.patch('/clinics/:id/expire', expireClinicNow);  // vencer ahora (corte inmediato)
+router.patch('/clinics/:id/expiry', setClinicExpiry);  // fijar fecha de vencimiento
 router.get('/subscription', getSubscription);
 router.get('/access-log', getAccessLog);
 

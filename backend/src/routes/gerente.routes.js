@@ -9,6 +9,8 @@ import {
   setMyVetActive,
   getMyReports,
   paySubscription,
+  confirmMockSubscription,
+  listMyPayments,
   downgradeToBasico,
   toggleStore,
   listMyProducts, createMyProduct, updateMyProduct, deleteMyProduct,
@@ -38,6 +40,8 @@ router.get('/reports', getMyReports);
 
 // Su suscripción (pago por Wompi de la plataforma)
 router.post('/subscription/pay', paySubscription);
+router.post('/subscription/confirm', confirmMockSubscription); // solo en modo simulado
+router.get('/subscription/payments', listMyPayments);
 router.post('/subscription/downgrade', downgradeToBasico);
 
 // Su tienda (solo plan Pro)

@@ -1,5 +1,6 @@
 import { query } from '../config/db.js';
 import { sendAppointmentConfirmation } from '../services/email.service.js';
+import { expireOverdueSubscriptions } from '../services/subscription.service.js';
 
 // Envía email de confirmación de una cita (best-effort, no bloquea).
 const notifyAppointment = async (appointmentId) => {
@@ -47,6 +48,7 @@ export const listMyAppointments = async (req, res, next) => {
 // ?vet_id=N filtra por veterinario · ?mine=1 (solo vet) muestra los propios
 export const listAvailableSlots = async (req, res, next) => {
   try {
+    await expireOverdueSubscriptions().catch(() => {}); // no ofrecer horarios de clínicas vencidas
     const params = [];
     let where = 'sl.is_booked = false AND sl.starts_at > now()';
 
