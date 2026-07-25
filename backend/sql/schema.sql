@@ -164,6 +164,23 @@ CREATE TABLE appointments (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
+-- 6b) CONSULTATIONS (atención clínica estructurada) ─────────
+-- Cada atención con sus campos separados; puede ir ligada a una
+-- cita o ser una consulta suelta (paciente sin cita previa).
+CREATE TABLE consultations (
+    id             SERIAL PRIMARY KEY,
+    pet_id         INTEGER      NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+    vet_id         INTEGER      REFERENCES users(id) ON DELETE SET NULL,
+    appointment_id INTEGER      REFERENCES appointments(id) ON DELETE SET NULL,
+    reason         VARCHAR(200) NOT NULL,
+    symptoms       TEXT,
+    diagnosis      TEXT,
+    treatment      TEXT,
+    medications    TEXT,
+    consulted_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- 7) COURSES (por clínica) ──────────────────────────────────
 CREATE TABLE courses (
     id           SERIAL PRIMARY KEY,

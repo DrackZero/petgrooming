@@ -1,4 +1,17 @@
 import { query } from '../config/db.js';
+import { buildPetHistoryPdf } from '../services/pdf.service.js';
+
+// Consultas clínicas de una mascota, con quién atendió y en qué clínica.
+const petConsultations = (petId) =>
+  query(
+    `SELECT c.*, u.name AS vet_name, cl.name AS clinic_name
+     FROM consultations c
+     LEFT JOIN users u ON u.id = c.vet_id
+     LEFT JOIN clinics cl ON cl.id = u.clinic_id
+     WHERE c.pet_id = $1
+     ORDER BY c.consulted_at DESC`,
+    [petId]
+  );
 
 // Verifica si el usuario puede ver una mascota:
 // el veterinario puede ver todas (historial portable entre clínicas);
@@ -72,7 +85,12 @@ export const getPetHistory = async (req, res, next) => {
        ORDER BY sl.starts_at DESC`,
       [req.params.id]
     );
-    res.json({ vaccines: vaccines.rows, appointments: appointments.rows });
+    const consultations = await petConsultations(req.params.id);
+    res.json({
+      vaccines: vaccines.rows,
+      appointments: appointments.rows,
+      consultations: consultations.rows,
+    });
   } catch (err) {
     next(err);
   }
@@ -94,6 +112,117 @@ export const listVaccines = async (req, res, next) => {
       [req.params.id]
     );
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/pets/:id/consultations  → consultas clínicas (dueño o veterinario)
+export const listConsultations = async (req, res, next) => {
+  try {
+    if (!(await canAccessPet(req.user, req.params.id))) {
+      return res.status(404).json({ message: 'Mascota no encontrada' });
+    }
+    logVetAccess(req.user, req.params.id);
+    const { rows } = await petConsultations(req.params.id);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/pets/:id/consultations  → registrar una atención (veterinario)
+export const addConsultation = async (req, res, next) => {
+  try {
+    const { reason, symptoms, diagnosis, treatment, medications, appointment_id, consulted_at } = req.body;
+    if (!reason?.trim()) {
+      return res.status(400).json({ message: 'El motivo de la consulta es obligatorio' });
+    }
+    const pet = await query('SELECT id FROM pets WHERE id = $1', [req.params.id]);
+    if (!pet.rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
+
+    const { rows } = await query(
+      `INSERT INTO consultations
+         (pet_id, vet_id, appointment_id, reason, symptoms, diagnosis, treatment, medications, consulted_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, COALESCE($9::timestamptz, now()))
+       RETURNING *`,
+      [
+        req.params.id, req.user.id, appointment_id || null, reason.trim(),
+        symptoms || null, diagnosis || null, treatment || null, medications || null,
+        consulted_at || null,
+      ]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/pets/:id/consultations/:cid  → eliminar una consulta (veterinario)
+export const deleteConsultation = async (req, res, next) => {
+  try {
+    const { rowCount } = await query(
+      'DELETE FROM consultations WHERE id = $1 AND pet_id = $2',
+      [req.params.cid, req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ message: 'Consulta no encontrada' });
+    res.json({ message: 'Consulta eliminada' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/pets/:id/history.pdf  → historia clínica en PDF (dueño o veterinario)
+export const getHistoryPdf = async (req, res, next) => {
+  try {
+    if (!(await canAccessPet(req.user, req.params.id))) {
+      return res.status(404).json({ message: 'Mascota no encontrada' });
+    }
+    logVetAccess(req.user, req.params.id); // el vet que descarga queda en la bitácora
+
+    const petRes = await query(
+      `SELECT p.*, u.name AS owner_name, u.email AS owner_email, u.phone AS owner_phone
+       FROM pets p JOIN users u ON u.id = p.owner_id
+       WHERE p.id = $1`,
+      [req.params.id]
+    );
+    if (!petRes.rows.length) return res.status(404).json({ message: 'Mascota no encontrada' });
+    const pet = petRes.rows[0];
+
+    const [vaccines, appointments, consultations] = await Promise.all([
+      query(
+        `SELECT v.*, u.name AS vet_name, c.name AS clinic_name
+         FROM vaccines v
+         LEFT JOIN users u ON u.id = v.vet_id
+         LEFT JOIN clinics c ON c.id = u.clinic_id
+         WHERE v.pet_id = $1 ORDER BY v.applied_date DESC`,
+        [req.params.id]
+      ),
+      query(
+        `SELECT a.status, a.notes, sl.starts_at
+         FROM appointments a
+         JOIN availability_slots sl ON sl.id = a.slot_id
+         WHERE a.pet_id = $1 ORDER BY sl.starts_at DESC`,
+        [req.params.id]
+      ),
+      petConsultations(req.params.id),
+    ]);
+
+    // Nombre de archivo seguro: sin acentos ni caracteres raros.
+    const safeName = pet.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="historia-clinica-${safeName}.pdf"`);
+
+    buildPetHistoryPdf(
+      {
+        pet,
+        owner: { name: pet.owner_name, email: pet.owner_email, phone: pet.owner_phone },
+        vaccines: vaccines.rows,
+        appointments: appointments.rows,
+        consultations: consultations.rows,
+      },
+      res
+    );
   } catch (err) {
     next(err);
   }

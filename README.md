@@ -12,8 +12,8 @@ SaaS multi-clínica por suscripción para veterinarias y peluquerías de mascota
 
 | Rol | Capacidades |
 |-----|-------------|
-| Cliente | Registra su primera mascota (para más, solicita aprobación del veterinario), ve su historial, agenda citas eligiendo veterinario, compra en la tienda, se inscribe en cursos, chat de urgencias |
-| Veterinario | Registra mascotas sin límite, aprueba solicitudes de mascota adicional, gestiona vacunas e historial clínico, define su jornada laboral, gestiona sus citas en el calendario mensual, atiende el chat |
+| Cliente | Registra su primera mascota (para más, solicita aprobación del veterinario), consulta y descarga en PDF la historia clínica de su mascota, agenda citas eligiendo veterinario, compra en la tienda, se inscribe en cursos, chat de urgencias |
+| Veterinario | Registra mascotas sin límite, aprueba solicitudes de mascota adicional, registra consultas clínicas (motivo, síntomas, diagnóstico, tratamiento, medicamentos) y vacunas, descarga la historia clínica en PDF, define su jornada laboral, gestiona sus citas en el calendario mensual, atiende el chat |
 | Gerente | Dirige UNA clínica (no atiende): aprueba a sus veterinarios, edita la clínica, ve sus reportes, gestiona su tienda y cursos (solo plan Pro), paga o cambia su suscripción |
 | Administrador | Plataforma: activa/suspende clínicas, asigna planes, consulta ingresos por suscripción. No ve datos operativos de las clínicas |
 
@@ -94,6 +94,7 @@ node tests/pets-limit.test.mjs        # límite de mascotas y solicitudes
 node tests/calendar-summary.test.mjs  # calendario mensual del veterinario
 node tests/password-reset.test.mjs    # recuperación de contraseña
 node tests/subscription-cycle.test.mjs # ciclo de vida de la suscripción
+node tests/consultations-pdf.test.mjs # consultas clínicas y PDF del historial
 ```
 
 ## API principal
@@ -101,7 +102,8 @@ node tests/subscription-cycle.test.mjs # ciclo de vida de la suscripción
 | Módulo | Base | Notas |
 |--------|------|-------|
 | Autenticación | `/api/auth` | register, login, refresh, logout, me, forgot, reset. Access token (15 min) + refresh token (7 días) con rotación, en cookies httpOnly |
-| Mascotas | `/api/pets` | El cliente registra 1; las adicionales vía solicitud que aprueba un veterinario. Vacunas e historial, solo veterinario |
+| Mascotas | `/api/pets` | El cliente registra 1; las adicionales vía solicitud que aprueba un veterinario. Vacunas y consultas clínicas, solo veterinario |
+| Historia clínica | `/api/pets/:id/history` · `/consultations` · `/history.pdf` | Consultas con motivo, síntomas, diagnóstico, tratamiento y medicamentos; descarga en PDF para el veterinario y el dueño |
 | Citas | `/api/appointments` | Horarios por veterinario, reserva, reagenda, agenda del día, resumen del calendario mensual, jornada masiva |
 | Clínicas | `/api/clinics` | Listado público de clínicas activas |
 | Gerente | `/api/gerente` | Su clínica, sus veterinarios, reportes, suscripción, tienda y cursos (Pro) |
@@ -114,7 +116,8 @@ node tests/subscription-cycle.test.mjs # ciclo de vida de la suscripción
 
 - Contraseñas con bcrypt; sesiones en cookies httpOnly con rotación de refresh tokens.
 - Recuperación de contraseña con token de un solo uso (hash SHA-256 en BD, vence en 1 hora); al usarse revoca todas las sesiones. La respuesta de `/auth/forgot` es genérica para no revelar cuentas.
-- Historial clínico portable entre clínicas con bitácora de acceso "break-glass" (`emergency_access_log`).
+- Historial clínico portable entre clínicas con bitácora de acceso "break-glass" (`emergency_access_log`); descargar la historia clínica en PDF también queda auditado.
+- El PDF de la historia clínica solo lo obtienen el dueño de la mascota y los veterinarios; cualquier otro usuario recibe 404.
 - Webhook de Wompi validado con el secreto de eventos (checksum SHA-256).
 
 ## Pagos (Wompi)

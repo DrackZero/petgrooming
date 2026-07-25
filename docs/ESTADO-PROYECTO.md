@@ -47,7 +47,8 @@ Esquema base en `backend/sql/schema.sql`. Migraciones incrementales:
 - `migration-006-tienda-clinica.sql` — products.clinic_id, courses.clinic_id, clinics.store_enabled (aplicada)
 - `migration-007-pet-requests.sql` — tabla `pet_requests` (límite de 1 mascota autoregistrada por cliente + solicitud de mascota adicional) (aplicada)
 - `migration-008-password-reset.sql` — tabla `password_resets` (recuperación de contraseña, token hasheado de un solo uso, vence en 1 h) (aplicada)
-- `migration-009-ciclo-suscripcion.sql` — `clinics.subscription_expires_at` + tabla `subscription_payments` (la suscripción ahora vence y se renueva). **Aplicada en local, PENDIENTE en Neon.**
+- `migration-009-ciclo-suscripcion.sql` — `clinics.subscription_expires_at` + tabla `subscription_payments` (la suscripción ahora vence y se renueva) (aplicada)
+- `migration-010-consultas.sql` — tabla `consultations` (historia clínica estructurada: motivo, síntomas, diagnóstico, tratamiento, medicamentos). **Aplicada en local, PENDIENTE en Neon.**
 
 **Suscripción:** clinics.status = pendiente|activa|suspendida ; clinics.plan = basico|pro ;
 clinics.subscription_expires_at = vigencia (NULL = nunca pagó).
@@ -77,16 +78,18 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Recuperación de contraseña**: "¿Olvidaste tu contraseña?" en el login → `/forgot-password` pide el email (respuesta genérica, no revela cuentas) → correo por Resend con enlace a `/reset-password?token=…` → token de un solo uso (SHA-256 en BD, vence 1 h); al usarse revoca todas las sesiones. Fuera de producción `/auth/forgot` devuelve `debug_token` para pruebas.
 - **Calendario del vet** muestra también los días con horario libre sin reservar (estado `disponible`, punto índigo), no solo los días con citas.
 - Historial clínico **portable entre clínicas** + bitácora de acceso "break-glass" (`emergency_access_log`).
+- **Consultas clínicas estructuradas** (`consultations`): cada atención con motivo, síntomas, diagnóstico, tratamiento y medicamentos en campos separados. Las registra el veterinario desde "🩺 Consulta" en su panel de mascotas; el dueño las ve en solo lectura.
+- **Historia clínica en PDF** (`GET /api/pets/:id/history.pdf`, PDFKit): documento con membrete, ficha del paciente, propietario, consultas, vacunas y citas, con pie de confidencialidad y numeración. Lo descargan el veterinario y el dueño; la descarga del vet queda en la bitácora break-glass.
 - **Chat de emergencia en vivo** cliente↔veterinario por WebSocket (`/ws`, auth por cookie).
 - **Calendario mensual** del veterinario (estilo Q10).
 - **Jornada laboral masiva** (genera muchos horarios de una vez).
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
 
-## Pruebas (todas en verde, 201 casos)
+## Pruebas (todas en verde, 224 casos)
 
 En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
-- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset, subscription-cycle
+- history, slots-bulk, order-expiry, wompi-webhook, vets-flow, chat, multiclinic, gerente-flow, gerente-manage, store-clinic, subscription-pay, pets-limit, calendar-summary, password-reset, subscription-cycle, consultations-pdf
 
 ## Cuentas semilla (tras la limpieza, son las ÚNICAS en producción)
 
@@ -103,6 +106,8 @@ En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
 5. **Avisos previos al vencimiento**: hoy se envía correo al pagar y al suspenderse; falta el recordatorio "te vence en 5 días".
 6. **PetGrooming Yopal sin gerente:** sus 11 productos no son editables por nadie (no hay gerente). Si se quiere, asignarle un gerente o dejarlo como "tienda de plataforma".
 7. **Correos solo llegan a la cuenta de Resend** mientras se use el remitente de prueba `onboarding@resend.dev`. Se resuelve verificando un dominio propio en Resend y cambiando `EMAIL_FROM`.
+8. **Historial: lo que quedó fuera.** Se implementó solo la consulta clínica estructurada (decisión del usuario). Quedan como mejoras naturales: peso y signos vitales por visita (con curva de peso), desparasitaciones con próxima dosis, y ficha ampliada de la mascota (sexo, fecha de nacimiento en vez de `age` fija que se desactualiza, esterilizado, microchip, alergias estructuradas). También un certificado de vacunación en PDF aparte del historial completo.
+9. **PetGrooming Yopal quedó en plan Básico** en producción, y la tienda pública solo muestra clínicas Pro: sus 11 productos y los cursos están ocultos. Se arregla en un clic desde Admin → Clínicas cambiando su plan a Pro.
 
 ## Notas de decisiones tomadas
 

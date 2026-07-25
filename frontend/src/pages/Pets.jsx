@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getPets, getPetHistory, createMyPet, requestPet, getMyPetRequests } from '../api/pets.js';
+import {
+  getPets, getPetHistory, createMyPet, requestPet, getMyPetRequests, downloadHistoryPdf,
+} from '../api/pets.js';
 import Notification from '../components/Notification.jsx';
 import SpeciesPicker from '../components/SpeciesPicker.jsx';
 
@@ -34,6 +36,15 @@ export default function Pets() {
     if (!history[petId]) {
       const data = await getPetHistory(petId).catch(() => null);
       if (data) setHistory((prev) => ({ ...prev, [petId]: data }));
+    }
+  };
+
+  const downloadPdf = async (pet) => {
+    try {
+      await downloadHistoryPdf(pet.id, pet.name);
+      setMsg(`Historia clínica de ${pet.name} descargada ✓`);
+    } catch {
+      setMsg('No fue posible generar el PDF');
     }
   };
 
@@ -144,15 +155,44 @@ export default function Pets() {
                 </p>
                 {p.notes && <p className="mt-1 text-sm text-slate-600">{p.notes}</p>}
               </div>
-              <span className="text-2xl">{p.species?.toLowerCase() === 'gato' ? '🐱' : '🐶'}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => downloadPdf(p)}
+                  title="Descargar la historia clínica completa en PDF"
+                  className="text-xs font-semibold px-3 py-1.5 rounded-full bg-brand text-white hover:bg-brand-dark transition"
+                >
+                  📄 PDF
+                </button>
+                <span className="text-2xl">{p.species?.toLowerCase() === 'gato' ? '🐱' : '🐶'}</span>
+              </div>
             </div>
 
             <button
               onClick={() => toggleHistory(p.id)}
               className="w-full text-left px-4 py-2 text-sm text-brand-dark border-t border-slate-100 hover:bg-slate-50"
             >
-              {openId === p.id ? '▲ Ocultar historial' : '▼ Ver historial (vacunas y citas)'}
+              {openId === p.id ? '▲ Ocultar historial' : '▼ Ver historial (consultas, vacunas y citas)'}
             </button>
+
+            {openId === p.id && history[p.id]?.consultations?.length > 0 && (
+              <div className="px-4 pt-1 pb-2 text-sm">
+                <h4 className="font-medium mb-1">🩺 Consultas</h4>
+                <div className="space-y-2">
+                  {history[p.id].consultations.map((c) => (
+                    <div key={c.id} className="border border-slate-200 rounded-xl p-3">
+                      <p className="font-semibold text-slate-800">{c.reason}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(c.consulted_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {c.vet_name && ` · ${c.vet_name}`}{c.clinic_name && ` (${c.clinic_name})`}
+                      </p>
+                      {c.diagnosis && <p className="mt-1 text-slate-600"><span className="text-xs text-slate-400 uppercase">Diagnóstico </span>{c.diagnosis}</p>}
+                      {c.treatment && <p className="text-slate-600"><span className="text-xs text-slate-400 uppercase">Tratamiento </span>{c.treatment}</p>}
+                      {c.medications && <p className="text-slate-600"><span className="text-xs text-slate-400 uppercase">Medicamentos </span>{c.medications}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {openId === p.id && (
               <div className="px-4 pb-4 grid sm:grid-cols-2 gap-4 text-sm">

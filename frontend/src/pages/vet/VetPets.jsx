@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import {
   getAllPets, getClientsForVet, createPet, addVaccine, deleteVaccine, getPetHistory,
   getPetRequests, approvePetRequest, rejectPetRequest,
+  addConsultation, deleteConsultation, downloadHistoryPdf,
 } from '../../api/pets.js';
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
 import SpeciesPicker from '../../components/SpeciesPicker.jsx';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
+const emptyConsultation = {
+  reason: '', symptoms: '', diagnosis: '', treatment: '', medications: '',
+};
 
 // Panel del VETERINARIO: registrar mascotas de clientes, sus vacunas,
 // y revisar solicitudes de mascota adicional enviadas por clientes.
@@ -18,6 +22,8 @@ export default function VetPets() {
   const [form, setForm] = useState(emptyPet);
   const [vaccineFor, setVaccineFor] = useState(null); // mascota a la que se añade vacuna
   const [vaccine, setVaccine] = useState({ name: '', applied_date: '' });
+  const [consultFor, setConsultFor] = useState(null); // mascota que se está atendiendo
+  const [consultation, setConsultation] = useState(emptyConsultation);
   const [historyFor, setHistoryFor] = useState(null); // mascota cuyo historial se muestra
   const [history, setHistory] = useState(null);
   const [msg, setMsg] = useState('');
@@ -72,6 +78,36 @@ export default function VetPets() {
     if (!confirm('¿Eliminar esta vacuna del historial?')) return;
     await deleteVaccine(historyFor.id, vaccineId).catch(() => {});
     setHistory(await getPetHistory(historyFor.id).catch(() => null));
+  };
+
+  const handleConsultation = async (e) => {
+    e.preventDefault();
+    try {
+      await addConsultation(consultFor.id, consultation);
+      setMsg(`Consulta de ${consultFor.name} registrada ✓`);
+      setConsultFor(null);
+      setConsultation(emptyConsultation);
+      if (historyFor?.id === consultFor.id) {
+        setHistory(await getPetHistory(consultFor.id).catch(() => null));
+      }
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'Error al registrar la consulta');
+    }
+  };
+
+  const removeConsultation = async (consultationId) => {
+    if (!confirm('¿Eliminar esta consulta del historial?')) return;
+    await deleteConsultation(historyFor.id, consultationId).catch(() => {});
+    setHistory(await getPetHistory(historyFor.id).catch(() => null));
+  };
+
+  const downloadPdf = async (pet) => {
+    try {
+      await downloadHistoryPdf(pet.id, pet.name);
+      setMsg(`Historia clínica de ${pet.name} descargada ✓`);
+    } catch {
+      setMsg('No fue posible generar el PDF');
+    }
   };
 
   const handleVaccine = async (e) => {
@@ -164,14 +200,24 @@ export default function VetPets() {
                 <td className="p-3">{p.age != null ? `${p.age} años` : '—'}</td>
                 <td className="p-3">{p.owner_name}</td>
                 <td className="p-3 text-right space-x-3 whitespace-nowrap">
+                  <Tooltip tip="Registrar la atención: motivo, diagnóstico, tratamiento y medicamentos" side="top">
+                    <button onClick={() => { setConsultFor(p); setConsultation(emptyConsultation); }} className="text-brand-dark hover:underline">
+                      🩺 Consulta
+                    </button>
+                  </Tooltip>
                   <Tooltip tip="Registrar una vacuna aplicada a esta mascota" side="top">
                     <button onClick={() => setVaccineFor(p)} className="text-brand-dark hover:underline">
                       💉 Vacuna
                     </button>
                   </Tooltip>
-                  <Tooltip tip="Ver el historial clínico completo (vacunas y consultas)" side="top">
+                  <Tooltip tip="Ver el historial clínico completo (consultas, vacunas y citas)" side="top">
                     <button onClick={() => showHistory(p)} className="text-brand-dark hover:underline">
                       📋 Historial
+                    </button>
+                  </Tooltip>
+                  <Tooltip tip="Descargar la historia clínica completa en PDF" side="top">
+                    <button onClick={() => downloadPdf(p)} className="text-brand-dark hover:underline">
+                      📄 PDF
                     </button>
                   </Tooltip>
                 </td>
@@ -183,6 +229,72 @@ export default function VetPets() {
           </tbody>
         </table>
       </div>
+
+      {/* Formulario de consulta clínica */}
+      {consultFor && (
+        <form onSubmit={handleConsultation} className="bg-white border-2 border-brand rounded-2xl p-5 mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-slate-800">
+              🩺 Registrar consulta — <span className="text-brand-dark">{consultFor.name}</span>
+              <span className="text-slate-400 font-normal text-sm"> ({consultFor.owner_name})</span>
+            </p>
+            <button type="button" onClick={() => setConsultFor(null)} className="px-2 rounded bg-slate-100 hover:bg-slate-200">✕</button>
+          </div>
+
+          <label className="block text-sm">
+            Motivo de consulta *
+            <input
+              required placeholder="Ej. Control anual, vómito, cojera…"
+              className="border rounded-lg p-2 w-full mt-1"
+              value={consultation.reason}
+              onChange={(e) => setConsultation({ ...consultation, reason: e.target.value })}
+            />
+          </label>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="block text-sm">
+              Síntomas observados
+              <textarea
+                rows="3" placeholder="Qué presenta el paciente"
+                className="border rounded-lg p-2 w-full mt-1"
+                value={consultation.symptoms}
+                onChange={(e) => setConsultation({ ...consultation, symptoms: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Diagnóstico
+              <textarea
+                rows="3" placeholder="Conclusión clínica"
+                className="border rounded-lg p-2 w-full mt-1"
+                value={consultation.diagnosis}
+                onChange={(e) => setConsultation({ ...consultation, diagnosis: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Tratamiento indicado
+              <textarea
+                rows="3" placeholder="Procedimiento y cuidados"
+                className="border rounded-lg p-2 w-full mt-1"
+                value={consultation.treatment}
+                onChange={(e) => setConsultation({ ...consultation, treatment: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              Medicamentos recetados
+              <textarea
+                rows="3" placeholder="Nombre, dosis y duración"
+                className="border rounded-lg p-2 w-full mt-1"
+                value={consultation.medications}
+                onChange={(e) => setConsultation({ ...consultation, medications: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <button className="w-full bg-brand text-white rounded-full py-2.5 font-semibold hover:bg-brand-dark transition">
+            Guardar consulta en el historial
+          </button>
+        </form>
+      )}
 
       {/* Formulario de vacuna */}
       {vaccineFor && (
@@ -205,13 +317,53 @@ export default function VetPets() {
               📋 Historial clínico — <span className="text-brand-dark">{historyFor.name}</span>
               <span className="text-slate-400 font-normal text-sm"> ({historyFor.owner_name})</span>
             </h2>
-            <button onClick={() => { setHistoryFor(null); setHistory(null); }} className="px-2 rounded bg-slate-100 hover:bg-slate-200">✕</button>
+            <div className="flex gap-2">
+              <button onClick={() => downloadPdf(historyFor)} className="text-sm font-semibold px-3 py-1 rounded-full bg-brand text-white hover:bg-brand-dark transition">
+                📄 Descargar PDF
+              </button>
+              <button onClick={() => { setHistoryFor(null); setHistory(null); }} className="px-2 rounded bg-slate-100 hover:bg-slate-200">✕</button>
+            </div>
           </div>
 
           {historyFor.notes && (
             <p className="text-sm bg-amber-50 text-amber-800 rounded-lg px-3 py-2 mb-3">
               ⚠️ Notas clínicas: {historyFor.notes}
             </p>
+          )}
+
+          {/* Consultas clínicas */}
+          {history && (
+            <div className="mb-4">
+              <h4 className="font-medium mb-2 text-sm">🩺 Consultas ({history.consultations?.length || 0})</h4>
+              {history.consultations?.length ? (
+                <div className="space-y-2">
+                  {history.consultations.map((c) => (
+                    <div key={c.id} className="border border-slate-200 rounded-xl p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-slate-800">{c.reason}</p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(c.consulted_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {c.vet_name && ` · ${c.vet_name}`}{c.clinic_name && ` (${c.clinic_name})`}
+                          </p>
+                        </div>
+                        <button onClick={() => removeConsultation(c.id)} className="text-red-500 text-xs hover:underline shrink-0">
+                          Quitar
+                        </button>
+                      </div>
+                      <dl className="grid sm:grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                        {c.symptoms && <div><dt className="text-xs text-slate-400 uppercase">Síntomas</dt><dd className="text-slate-600">{c.symptoms}</dd></div>}
+                        {c.diagnosis && <div><dt className="text-xs text-slate-400 uppercase">Diagnóstico</dt><dd className="text-slate-600">{c.diagnosis}</dd></div>}
+                        {c.treatment && <div><dt className="text-xs text-slate-400 uppercase">Tratamiento</dt><dd className="text-slate-600">{c.treatment}</dd></div>}
+                        {c.medications && <div><dt className="text-xs text-slate-400 uppercase">Medicamentos</dt><dd className="text-slate-600">{c.medications}</dd></div>}
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm">Sin consultas registradas.</p>
+              )}
+            </div>
           )}
 
           {!history ? (
@@ -244,7 +396,7 @@ export default function VetPets() {
                 )}
               </div>
               <div>
-                <h4 className="font-medium mb-2">📅 Consultas ({history.appointments.length})</h4>
+                <h4 className="font-medium mb-2">📅 Citas ({history.appointments.length})</h4>
                 {history.appointments.length ? (
                   <ul className="space-y-2">
                     {history.appointments.map((a) => (
