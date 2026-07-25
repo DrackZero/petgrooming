@@ -371,10 +371,25 @@ export const getSubscription = async (req, res, next) => {
        ORDER BY subscription_expires_at ASC`
     );
 
+    // Serie de los últimos 6 meses (incluye meses sin cobros, en cero).
+    const series = await query(
+      `SELECT to_char(m.mes, 'YYYY-MM') AS periodo,
+              COALESCE(SUM(sp.amount), 0)::float AS total
+       FROM generate_series(
+              date_trunc('month', now()) - interval '5 months',
+              date_trunc('month', now()),
+              interval '1 month'
+            ) AS m(mes)
+       LEFT JOIN subscription_payments sp
+              ON date_trunc('month', sp.paid_at) = m.mes
+       GROUP BY m.mes ORDER BY m.mes ASC`
+    );
+
     res.json({
       monthlyRevenue,                          // proyectado
       collectedThisMonth: collected.rows[0].total,
       paymentsThisMonth: collected.rows[0].payments,
+      revenueSeries: series.rows,
       upcomingRenewals: upcoming.rows,
       byPlan,
       planPrices: PLAN_PRICES,

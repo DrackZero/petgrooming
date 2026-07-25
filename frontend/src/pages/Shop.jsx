@@ -3,6 +3,8 @@ import { getProducts } from '../api/orders.js';
 import { useCart } from '../hooks/useCart.js';
 import ProductCard from '../components/ProductCard.jsx';
 import Notification from '../components/Notification.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import { SkeletonCards } from '../components/Skeleton.jsx';
 
 const SORTS = [
   { value: 'recientes', label: 'Más recientes' },
@@ -19,9 +21,13 @@ export default function Shop() {
   const [category, setCategory] = useState('todas');
   const [sort, setSort] = useState('recientes');
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getProducts().then(setProducts).catch(() => {});
+    getProducts()
+      .then(setProducts)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAdd = (product) => {
@@ -120,23 +126,39 @@ export default function Shop() {
       )}
 
       {/* Resultados */}
-      <p className="text-sm text-slate-400 mb-3">
-        {visible.length} resultado{visible.length !== 1 && 's'}
-        {search && ` para "${search}"`}
-      </p>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {visible.map((p) => (
-          <ProductCard key={p.id} product={p} onAdd={handleAdd} />
-        ))}
-        {visible.length === 0 && (
-          <div className="col-span-full text-center py-12 text-slate-500">
-            <span className="text-4xl block mb-2">🐾</span>
-            {products.length === 0
-              ? 'No hay productos disponibles por el momento.'
-              : 'Ningún producto coincide con tu búsqueda.'}
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <SkeletonCards count={8} className="lg:grid-cols-4" />
+      ) : (
+        <>
+          <p className="text-sm text-slate-400 mb-3">
+            {visible.length} resultado{visible.length !== 1 && 's'}
+            {search && ` para "${search}"`}
+          </p>
+          {visible.length === 0 ? (
+            products.length === 0 ? (
+              <EmptyState
+                icon="🛍️"
+                title="La tienda está vacía por ahora"
+                description="Todavía no hay veterinarias con tienda en línea activa. Vuelve pronto: aquí aparecerán alimento, juguetes y accesorios."
+                action={{ to: '/', label: 'Volver al inicio' }}
+              />
+            ) : (
+              <EmptyState
+                icon="🔍"
+                title="Ningún producto coincide"
+                description={`No encontramos resultados${search ? ` para "${search}"` : ''}. Prueba con otra palabra o quita los filtros.`}
+                action={{ onClick: () => { setSearch(''); setCategory('todas'); }, label: 'Limpiar búsqueda' }}
+              />
+            )
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {visible.map((p) => (
+                <ProductCard key={p.id} product={p} onAdd={handleAdd} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -9,10 +9,17 @@ export default function Notification({ type = 'info', message, onClose }) {
   };
 
   return (
-    <div className={`border rounded-md px-4 py-3 flex items-center justify-between ${styles[type]}`}>
+    <div
+      role="status"
+      className={`border rounded-xl px-4 py-3 flex items-center justify-between animate-slide-up ${styles[type]}`}
+    >
       <span className="text-sm">{message}</span>
       {onClose && (
-        <button onClick={onClose} className="ml-4 text-lg leading-none opacity-60 hover:opacity-100">
+        <button
+          onClick={onClose}
+          aria-label="Cerrar aviso"
+          className="ml-4 text-lg leading-none opacity-60 hover:opacity-100 transition"
+        >
           ×
         </button>
       )}

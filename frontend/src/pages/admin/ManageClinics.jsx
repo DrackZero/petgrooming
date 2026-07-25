@@ -11,6 +11,19 @@ import {
 } from '../../api/admin.js';
 import { formatCOP } from '../../utils/format.js';
 import Notification from '../../components/Notification.jsx';
+import TrendBars from '../../components/TrendBars.jsx';
+import BarList from '../../components/BarList.jsx';
+import { SkeletonRows } from '../../components/Skeleton.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+
+const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+// Monto abreviado para las etiquetas de la gráfica ($ 1,2 M).
+const compactCOP = (v) => {
+  if (v >= 1_000_000) return `$ ${(v / 1_000_000).toFixed(1).replace('.', ',')} M`;
+  if (v >= 1_000) return `$ ${Math.round(v / 1000)} K`;
+  return `$ ${v}`;
+};
 
 const empty = { name: '', address: '', phone: '' };
 
@@ -106,6 +119,45 @@ export default function ManageClinics() {
             <Stat label="Activas" value={sub.activas} />
             <Stat label="Pendientes" value={sub.pendientes} />
             <Stat label="Suspendidas" value={sub.suspendidas} />
+          </div>
+
+          {/* Gráficas: recaudo mensual y distribución de clínicas */}
+          <div className="grid lg:grid-cols-[1.6fr_1fr] gap-4 mb-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h2 className="font-bold text-slate-800">Recaudo por suscripciones</h2>
+              <p className="text-sm text-slate-500 mb-4">Últimos 6 meses, en pesos colombianos.</p>
+              <TrendBars
+                data={(sub.revenueSeries || []).map((r) => {
+                  const [y, m] = r.periodo.split('-');
+                  return { label: `${MES_CORTO[Number(m) - 1]} ${y.slice(2)}`, value: r.total };
+                })}
+                formatValue={compactCOP}
+                emptyText="Aún no hay pagos de suscripción registrados."
+              />
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5">
+              <h2 className="font-bold text-slate-800">Clínicas</h2>
+              <p className="text-sm text-slate-500 mb-4">Por estado de su suscripción.</p>
+              <BarList
+                data={[
+                  { label: 'activas', value: sub.activas, color: '#059669' },
+                  { label: 'pendientes', value: sub.pendientes, color: '#d97706' },
+                  { label: 'suspendidas', value: sub.suspendidas, color: '#dc2626' },
+                ]}
+                emptyText="Sin clínicas registradas."
+              />
+              <div className="border-t border-slate-100 mt-4 pt-4">
+                <p className="text-xs text-slate-400 uppercase mb-2">Por plan</p>
+                <BarList
+                  data={[
+                    { label: 'básico', value: sub.byPlan?.basico || 0, color: '#93c5fd' },
+                    { label: 'pro', value: sub.byPlan?.pro || 0, color: '#2563eb' },
+                  ]}
+                  emptyText="Sin clínicas activas."
+                />
+              </div>
+            </div>
           </div>
 
           {sub.upcomingRenewals?.length > 0 && (

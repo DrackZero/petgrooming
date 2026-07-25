@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getAvailableSlots, createSlot, createSlotsBulk, deleteSlot } from '../../api/appointments.js';
+import {
+  getAvailableSlots, getAllAppointments, createSlot, createSlotsBulk, deleteSlot,
+} from '../../api/appointments.js';
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
+import WeekSchedule, { startOfWeek } from '../../components/WeekSchedule.jsx';
 
 // Orden visual L→D con los valores de getDay() (0=domingo).
 const WEEKDAYS = [
@@ -26,15 +29,56 @@ const emptyBulk = {
 // Panel del VETERINARIO: definir su jornada laboral y horarios de citas.
 export default function VetSlots() {
   const [slots, setSlots] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [bulk, setBulk] = useState(emptyBulk);
   const [single, setSingle] = useState({ starts_at: '', ends_at: '' });
   const [showSingle, setShowSingle] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [week, setWeek] = useState(startOfWeek(new Date()));
+  const [loading, setLoading] = useState(true);
 
   // mine=1: cada veterinario ve y gestiona solo SUS horarios.
-  const load = () => getAvailableSlots({ mine: 1 }).then(setSlots).catch(() => {});
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      getAvailableSlots({ mine: 1 }).catch(() => []),
+      getAllAppointments().catch(() => []),
+    ])
+      .then(([s, a]) => { setSlots(s); setAppointments(a); })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, []);
+
+  const changeWeek = (delta) => {
+    setWeek((w) => {
+      if (delta === 0) return startOfWeek(new Date());
+      const d = new Date(w);
+      d.setDate(d.getDate() + delta * 7);
+      return d;
+    });
+  };
+
+  // Crear una franja de 1 hora tocando una celda vacía.
+  const addSlotAt = async (date) => {
+    const ends = new Date(date.getTime() + 60 * 60 * 1000);
+    setMsg(''); setError('');
+    try {
+      await createSlot({ starts_at: date.toISOString(), ends_at: ends.toISOString() });
+      setMsg(`✓ Franja abierta el ${date.toLocaleDateString('es-CO')} a las ${date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'No fue posible crear la franja');
+    }
+  };
+
+  const removeSlotFromGrid = async (slot) => {
+    const hora = new Date(slot.starts_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    if (!confirm(`¿Eliminar la franja del ${hora}?`)) return;
+    await deleteSlot(slot.id).catch(() => {});
+    setMsg('Franja eliminada');
+    load();
+  };
 
   const toggleDay = (value) =>
     setBulk((b) => ({
@@ -69,22 +113,8 @@ export default function VetSlots() {
     }
   };
 
-  const handleDelete = async (id) => {
-    await deleteSlot(id).catch(() => {});
-    load();
-  };
-
-  // Agrupa los horarios libres por día para una lista legible.
-  const grouped = slots.reduce((acc, s) => {
-    const key = new Date(s.starts_at).toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long',
-    });
-    (acc[key] = acc[key] || []).push(s);
-    return acc;
-  }, {});
-
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <h1 className="page-title mb-4">Horarios de atención</h1>
       <Notification type="success" message={msg} onClose={() => setMsg('')} />
       <Notification type="error" message={error} onClose={() => setError('')} />
@@ -190,34 +220,24 @@ export default function VetSlots() {
         </form>
       )}
 
-      {/* ── Lista agrupada por día ── */}
-      <h2 className="font-bold text-slate-800 mt-6 mb-2">
-        Próximos horarios libres <span className="text-slate-400 font-normal">({slots.length})</span>
-      </h2>
-      <div className="space-y-4">
-        {Object.entries(grouped).map(([day, daySlots]) => (
-          <div key={day} className="bg-white border border-slate-200 rounded-2xl p-4">
-            <p className="font-semibold text-brand-dark capitalize mb-2">{day}</p>
-            <div className="flex flex-wrap gap-2">
-              {daySlots.map((s) => (
-                <span key={s.id} className="inline-flex items-center gap-1.5 text-sm bg-brand-50 text-slate-700 rounded-full pl-3 pr-1.5 py-1">
-                  {new Date(s.starts_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                  <button
-                    onClick={() => handleDelete(s.id)}
-                    title="Eliminar franja"
-                    className="w-5 h-5 rounded-full bg-white text-red-500 text-xs leading-none hover:bg-red-50"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-        {slots.length === 0 && (
-          <p className="text-slate-500 text-sm">No hay horarios libres. Define tu jornada laboral arriba. 👆</p>
-        )}
+      {/* ── Horario semanal interactivo ── */}
+      <div className="mt-6 mb-2">
+        <h2 className="font-bold text-slate-800">
+          Mi horario semanal <span className="text-slate-400 font-normal">({slots.length} franjas libres)</span>
+        </h2>
+        <p className="text-sm text-slate-500">
+          Toca una celda vacía para abrir una franja de atención, o una franja libre para quitarla.
+        </p>
       </div>
+      <WeekSchedule
+        weekStart={week}
+        slots={slots}
+        appointments={appointments}
+        loading={loading}
+        onWeekChange={changeWeek}
+        onCreateSlot={addSlotAt}
+        onDeleteSlot={removeSlotFromGrid}
+      />
     </div>
   );
 }

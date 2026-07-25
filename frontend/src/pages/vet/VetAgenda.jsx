@@ -2,11 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   getAgenda,
   getAllAppointments,
+  getAvailableSlots,
   getCalendarSummary,
+  createSlot,
+  deleteSlot,
   updateAppointmentStatus,
 } from '../../api/appointments.js';
 import MonthCalendar, { STATUS_COLORS } from '../../components/MonthCalendar.jsx';
+import WeekSchedule, { startOfWeek } from '../../components/WeekSchedule.jsx';
 import Notification from '../../components/Notification.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import { SkeletonRows } from '../../components/Skeleton.jsx';
 
 const pad = (n) => String(n).padStart(2, '0');
 const toKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -23,6 +29,10 @@ export default function VetAgenda() {
   const [notesFor, setNotesFor] = useState(null);
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState('');
+  const [view, setView] = useState('semana');        // semana | mes
+  const [week, setWeek] = useState(startOfWeek(today));
+  const [slots, setSlots] = useState([]);            // franjas libres propias
+  const [loadingWeek, setLoadingWeek] = useState(true);
 
   const loadCalendar = useCallback(() => {
     const month = `${cursor.year}-${pad(cursor.month + 1)}`;
@@ -42,9 +52,61 @@ export default function VetAgenda() {
     getAgenda(selectedDay).then(setAgenda).catch(() => {});
   }, [selectedDay]);
 
+  // La vista semanal necesita las franjas libres y TODAS las citas del vet.
+  const loadWeek = useCallback(() => {
+    setLoadingWeek(true);
+    Promise.all([
+      getAvailableSlots({ mine: 1 }).catch(() => []),
+      getAllAppointments().catch(() => []),
+    ])
+      .then(([s, a]) => { setSlots(s); setAll(a); })
+      .finally(() => setLoadingWeek(false));
+  }, []);
+
   useEffect(() => { loadCalendar(); }, [loadCalendar]);
   useEffect(() => { loadAgenda(); }, [loadAgenda]);
+  useEffect(() => { loadWeek(); }, [loadWeek]);
   useEffect(() => { if (showAll) getAllAppointments().then(setAll).catch(() => {}); }, [showAll]);
+
+  const changeWeek = (delta) => {
+    setWeek((w) => {
+      if (delta === 0) return startOfWeek(new Date());
+      const d = new Date(w);
+      d.setDate(d.getDate() + delta * 7);
+      return d;
+    });
+  };
+
+  // Crear una franja de 1 hora tocando una celda vacía de la rejilla.
+  const addSlotAt = async (date) => {
+    const ends = new Date(date.getTime() + 60 * 60 * 1000);
+    try {
+      await createSlot({ starts_at: date.toISOString(), ends_at: ends.toISOString() });
+      setMsg(`Franja abierta el ${date.toLocaleDateString('es-CO')} a las ${date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} ✓`);
+      loadWeek();
+      loadCalendar();
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'No fue posible crear la franja');
+    }
+  };
+
+  const removeSlot = async (slot) => {
+    const hora = new Date(slot.starts_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    if (!confirm(`¿Eliminar la franja del ${hora}?`)) return;
+    try {
+      await deleteSlot(slot.id);
+      setMsg('Franja eliminada');
+      loadWeek();
+      loadCalendar();
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'No fue posible eliminar la franja');
+    }
+  };
+
+  // Al tocar una cita en la rejilla, se abre su día en la agenda.
+  const focusAppointment = (appt) => {
+    setSelectedDay(toKey(new Date(appt.starts_at)));
+  };
 
   const changeMonth = (delta) => {
     setCursor(({ year, month }) => {
@@ -61,7 +123,7 @@ export default function VetAgenda() {
       setNotes('');
       loadAgenda();
       loadCalendar();
-      if (showAll) getAllAppointments().then(setAll).catch(() => {});
+      loadWeek();
     } catch (err) {
       setMsg(err.response?.data?.message || 'Error al actualizar la cita');
     }
@@ -92,54 +154,102 @@ export default function VetAgenda() {
     </div>
   );
 
+  // Listado de citas del día seleccionado; lo comparten la vista semanal y la mensual.
+  const DayAgenda = () => (
+    <div className="space-y-2">
+      {agenda.map((a) => (
+        <div key={a.id} className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
+          <div>
+            <p className="text-sm font-medium">
+              {new Date(a.starts_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              {' — '}{a.pet_name} <span className="text-slate-400">({a.client_name})</span>
+            </p>
+            <span
+              className="text-xs px-2 py-0.5 rounded capitalize text-white"
+              style={{ backgroundColor: STATUS_COLORS[a.status] || '#64748b' }}
+            >
+              {a.status}
+            </span>
+          </div>
+          <Actions a={a} />
+        </div>
+      ))}
+      {agenda.length === 0 && (
+        <p className="text-slate-500 text-sm py-2">No hay citas para este día.</p>
+      )}
+    </div>
+  );
+
   const selectedDate = new Date(`${selectedDay}T00:00:00`);
   const isToday = selectedDay === toKey(today);
 
   return (
     <div>
-      <h1 className="page-title mb-4">Agenda</h1>
-      <Notification type="success" message={msg} onClose={() => setMsg('')} />
-
-      <div className="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
-        {/* Calendario mensual */}
-        <MonthCalendar
-          year={cursor.year}
-          month={cursor.month}
-          summaryByDay={summaryByDay}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
-          onMonthChange={changeMonth}
-        />
-
-        {/* Agenda del día seleccionado */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-5">
-          <h2 className="font-bold text-slate-800 mb-3 capitalize">
-            {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {isToday && <span className="ml-2 text-xs font-semibold text-brand-dark bg-brand-50 rounded-full px-2 py-0.5">Hoy</span>}
-          </h2>
-
-          <div className="space-y-2">
-            {agenda.map((a) => (
-              <div key={a.id} className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
-                <div>
-                  <p className="text-sm font-medium">
-                    {new Date(a.starts_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    {' — '}{a.pet_name} <span className="text-slate-400">({a.client_name})</span>
-                  </p>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded capitalize text-white"
-                    style={{ backgroundColor: STATUS_COLORS[a.status] || '#64748b' }}
-                  >
-                    {a.status}
-                  </span>
-                </div>
-                <Actions a={a} />
-              </div>
-            ))}
-            {agenda.length === 0 && <p className="text-slate-500 text-sm">No hay citas para este día.</p>}
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h1 className="page-title">Agenda</h1>
+        {/* Selector de vista */}
+        <div className="inline-flex bg-slate-100 rounded-full p-1">
+          {['semana', 'mes'].map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize transition ${
+                view === v ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {v === 'semana' ? '🗓️ Semana' : '📅 Mes'}
+            </button>
+          ))}
         </div>
       </div>
+      <Notification type="success" message={msg} onClose={() => setMsg('')} />
+
+      {/* Vista semanal: rejilla de horas por días, interactiva */}
+      {view === 'semana' && (
+        <div className="space-y-4">
+          <WeekSchedule
+            weekStart={week}
+            slots={slots}
+            appointments={all}
+            loading={loadingWeek}
+            onWeekChange={changeWeek}
+            onCreateSlot={addSlotAt}
+            onDeleteSlot={removeSlot}
+            onSelectAppointment={focusAppointment}
+          />
+
+          {/* Detalle del día tocado desde la rejilla */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <h2 className="font-bold text-slate-800 mb-3 capitalize">
+              {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {isToday && <span className="ml-2 text-xs font-semibold text-brand-dark bg-brand-50 rounded-full px-2 py-0.5">Hoy</span>}
+            </h2>
+            <DayAgenda />
+          </div>
+        </div>
+      )}
+
+      {/* Vista mensual: calendario de puntos + agenda del día */}
+      {view === 'mes' && (
+        <div className="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
+          <MonthCalendar
+            year={cursor.year}
+            month={cursor.month}
+            summaryByDay={summaryByDay}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            onMonthChange={changeMonth}
+          />
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <h2 className="font-bold text-slate-800 mb-3 capitalize">
+              {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {isToday && <span className="ml-2 text-xs font-semibold text-brand-dark bg-brand-50 rounded-full px-2 py-0.5">Hoy</span>}
+            </h2>
+            <DayAgenda />
+          </div>
+        </div>
+      )}
 
       {/* Notas al completar */}
       {notesFor && (

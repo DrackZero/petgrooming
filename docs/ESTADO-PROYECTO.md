@@ -81,7 +81,10 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Consultas clínicas estructuradas** (`consultations`): cada atención con motivo, síntomas, diagnóstico, tratamiento y medicamentos en campos separados. Las registra el veterinario desde "🩺 Consulta" en su panel de mascotas; el dueño las ve en solo lectura.
 - **Historia clínica en PDF** (`GET /api/pets/:id/history.pdf`, PDFKit): documento con membrete, ficha del paciente, propietario, consultas, vacunas y citas, con pie de confidencialidad y numeración. Lo descargan el veterinario y el dueño; la descarga del vet queda en la bitácora break-glass.
 - **Chat de emergencia en vivo** cliente↔veterinario por WebSocket (`/ws`, auth por cookie).
-- **Calendario mensual** del veterinario (estilo Q10).
+- **Horario semanal interactivo estilo Q10** (`components/WeekSchedule.jsx`): rejilla de horas × días. Celda vacía → crea franja de 1 h; franja libre → la elimina; cita → salta a su día en la agenda. Se usa en Agenda (selector Semana/Mes) y en Horarios, donde reemplazó la lista plana. Las celdas pasadas no permiten crear.
+- **Calendario mensual** del veterinario (puntos por estado), ahora como vista alternativa dentro de Agenda.
+- **Gráficas** sin dependencias externas (`BarList.jsx`, `TrendBars.jsx`): recaudo de 6 meses y distribución de clínicas en el panel admin, citas por estado en reportes del gerente.
+- **Estados de carga y vacíos** (`Skeleton.jsx`, `EmptyState.jsx`) y transiciones suaves, con `prefers-reduced-motion` respetado.
 - **Jornada laboral masiva** (genera muchos horarios de una vez).
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.
@@ -114,6 +117,7 @@ En `backend/tests/`, correr con la API local levantada: `node tests/<archivo>`
 - Gerente ≠ veterinario (carriles separados; el usuario fue explícito).
 - Tiendas de clínica en mock a propósito (cada clínica tendrá su Wompi a futuro); la Wompi de la plataforma es solo para cobrar suscripciones.
 - Los productos que crea el admin van a la clínica semilla (tienda de la plataforma).
+- **Colores de las gráficas validados, no elegidos a ojo.** Los estados de cita (ámbar/verde/azul/rojo) quedan a ΔE 7.9 para daltonismo protan — por debajo del umbral seguro de 8. Por eso TODA barra lleva su etiqueta de texto con nombre y valor: el color nunca es el único indicador. Si se agregan estados o series, revalidar antes de publicar.
 - **Suscripción en modo simulado para la entrega** (`SUBSCRIPTION_MOCK=true`): el gerente paga sin pasar por Wompi, para demostrar el ciclo sin gastar dinero real ni depender de la pasarela en vivo. El endpoint `/gerente/subscription/confirm` está bloqueado (403) si el modo simulado NO está activo, para que nunca se pueda activar gratis con Wompi real.
 - **Al vencer se suspende de inmediato** (sin periodo de gracia) y el admin tiene "Vencer ahora" / "+30 días" para demostrar el ciclo en vivo sin esperar 30 días. Ambas decisiones las tomó el usuario.
 - Límite de mascotas: el cliente autoregistra solo 1; para más, la solicitud la aprueba el **veterinario** (no el gerente) — el usuario delegó la decisión. Se eligió vet porque ya es quien gestiona mascotas/historial y las ve todas (portable entre clínicas); el gerente nunca toca datos clínicos. Cualquier vet activo ve la cola global de solicitudes (no hay clínica asignada al cliente).
