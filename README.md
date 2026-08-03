@@ -29,6 +29,18 @@ El cobro admite dos modos: **Wompi real** (Web Checkout, la clínica se activa d
 
 El admin ve el **recaudo real del mes** frente al **proyectado**, los vencimientos próximos, y dispone de "vencer ahora" y "extender vigencia" para gestionar casos puntuales.
 
+## Documentación
+
+| Documento | Para quién |
+|---|---|
+| [`docs/GUIA-CARPETAS.md`](docs/GUIA-CARPETAS.md) | Quien llega al código y necesita saber dónde está cada cosa |
+| [`docs/MANUAL-CODIGO.md`](docs/MANUAL-CODIGO.md) | Quien va a modificar el sistema: cómo funciona por dentro, recetas y errores ya cometidos |
+| [`docs/ESTADO-PROYECTO.md`](docs/ESTADO-PROYECTO.md) | Estado actual, decisiones tomadas y qué sigue |
+| `docs/build-manual-usuario.mjs` | Genera el manual de usuario en Word (paso a paso por rol) |
+| `docs/build-informe-tecnico.mjs` | Genera el informe técnico del desarrollo en Word |
+
+Los dos últimos se ejecutan con `node docs/<archivo>.mjs` y escriben el `.docx` en la carpeta de Descargas.
+
 ## Estructura
 
 ```

@@ -115,7 +115,13 @@ falla si se ejecuta de noche o en una máquina con otro huso. Verificado con `TZ
 ## PENDIENTES (por dónde seguir)
 
 1. **Cambiar contraseñas por defecto** (`admin123`/`vet123`): son débiles (disparan el aviso de "contraseña filtrada" del navegador) y están en el repo. Generar hashes bcrypt nuevos, actualizar seed en `schema.sql`, dar SQL para Neon (`UPDATE users SET password_hash=... WHERE email=...`).
-2. ~~Actualizar el documento técnico~~ — **HECHO.** `docs/build-informe-tecnico.mjs` regenerado el 25/07/2026 con: SaaS multi-clínica, 4 roles, ciclo de suscripción, historia clínica estructurada + PDF, chat, agenda semanal, 21 tablas, 9 migraciones y 224 pruebas. Se genera con `node docs/build-informe-tecnico.mjs` → `~/Downloads/PetGrooming_Informe_Tecnico.docx`.
+2. ~~Documentación~~ — **HECHA.** Cuatro documentos en `docs/`:
+   - `ESTADO-PROYECTO.md` (este archivo) — continuidad entre sesiones
+   - `GUIA-CARPETAS.md` — para qué existe cada carpeta y archivo
+   - `MANUAL-CODIGO.md` — cómo funciona el código, recetas y errores ya cometidos
+   - `build-manual-usuario.mjs` → manual de usuario en Word, paso a paso por rol, con 16 puntos marcados para pegar capturas
+   
+   ~~Actualizar el documento técnico~~ — **HECHO.** `docs/build-informe-tecnico.mjs` regenerado el 25/07/2026 con: SaaS multi-clínica, 4 roles, ciclo de suscripción, historia clínica estructurada + PDF, chat, agenda semanal, 21 tablas, 9 migraciones y 224 pruebas. Se genera con `node docs/build-informe-tecnico.mjs` → `~/Downloads/PetGrooming_Informe_Tecnico.docx`.
 3. **Volver a Wompi real en la suscripción** cuando pase la entrega: quitar `SUBSCRIPTION_MOCK=true` de Render. El código de Wompi está intacto, solo está detrás del interruptor.
 4. **Futuro grande:** Wompi propio por clínica para sus tiendas (hoy mock) + cobro recurrente **automático** (hoy el vencimiento y la suspensión sí son automáticos, pero la renovación la dispara el gerente a mano; falta tokenizar el medio de pago con Wompi).
 5. **Avisos previos al vencimiento**: hoy se envía correo al pagar y al suspenderse; falta el recordatorio "te vence en 5 días".
