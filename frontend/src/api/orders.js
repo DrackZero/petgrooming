@@ -1,6 +1,7 @@
 import api from './client.js';
 
 export const getProducts = () => api.get('/orders/products').then((r) => r.data);
+export const getProduct = (id) => api.get(`/orders/products/${id}`).then((r) => r.data);
 export const getOrders = () => api.get('/orders').then((r) => r.data);
 // payload: { items: [{product_id, quantity}], payment_method, shipping_address }
 export const createOrder = (payload) => api.post('/orders', payload).then((r) => r.data);

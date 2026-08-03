@@ -89,6 +89,8 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Calendario mensual** del veterinario (puntos por estado), ahora como vista alternativa dentro de Agenda.
 - **Gráficas** sin dependencias externas (`BarList.jsx`, `TrendBars.jsx`): recaudo de 6 meses y distribución de clínicas en el panel admin, citas por estado en reportes del gerente.
 - **Estados de carga y vacíos** (`Skeleton.jsx`, `EmptyState.jsx`) y transiciones suaves, con `prefers-reduced-motion` respetado.
+- **Ficha de producto** (`/shop/:id`, `GET /api/orders/products/:id`): imagen ampliable, descripción completa, selector de cantidad con subtotal en vivo, aviso de stock ("¡Últimas N!" / "Agotado"), datos de la veterinaria vendedora y otros productos suyos. Toda la tarjeta del catálogo lleva a la ficha; el botón "Añadir" es un atajo que no navega (`e.preventDefault()`).
+- **Filtros laterales en la tienda**: categoría y veterinaria con conteo, rango de precio, solo en stock, y contador de filtros activos con botón para limpiarlos. Sin migración: todo se deriva del catálogo ya cargado.
 - **Diálogo de confirmación propio** (`ConfirmDialog.jsx` + `ConfirmProvider` + `useConfirm()`): reemplazó las 9 llamadas a `confirm()` nativo. Se usa `if (!(await confirmar({...}))) return;`, así que las llamadas se leen igual que antes. Motivo del cambio: el cuadro nativo mostraba "petgrooming-tau.vercel.app dice:", bloqueaba el hilo del navegador, y —lo más grave— si el usuario marcaba "Impedir que esta página cree cuadros de diálogo", todas las confirmaciones posteriores devolvían `false` en silencio y las acciones no se ejecutaban sin explicación alguna.
 - **Jornada laboral masiva** (genera muchos horarios de una vez).
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
@@ -121,6 +123,39 @@ falla si se ejecuta de noche o en una máquina con otro huso. Verificado con `TZ
 7. **Correos solo llegan a la cuenta de Resend** mientras se use el remitente de prueba `onboarding@resend.dev`. Se resuelve verificando un dominio propio en Resend y cambiando `EMAIL_FROM`.
 8. **Historial: lo que quedó fuera.** Se implementó solo la consulta clínica estructurada (decisión del usuario). Quedan como mejoras naturales: peso y signos vitales por visita (con curva de peso), desparasitaciones con próxima dosis, y ficha ampliada de la mascota (sexo, fecha de nacimiento en vez de `age` fija que se desactualiza, esterilizado, microchip, alergias estructuradas). También un certificado de vacunación en PDF aparte del historial completo.
 9. **PetGrooming Yopal quedó en plan Básico** en producción, y la tienda pública solo muestra clínicas Pro: sus 11 productos y los cursos están ocultos. Se arregla en un clic desde Admin → Clínicas cambiando su plan a Pro.
+
+## Caja de sugerencias (mejoras propuestas, aún NO construidas)
+
+Ideas evaluadas y aplazadas a propósito. No son deuda técnica: son features que
+se ofrecieron, el usuario prefirió dejarlas para después.
+
+**Tienda estilo marketplace** (se construyeron la ficha de producto y los filtros laterales; falta):
+- **Precios y etiquetas tipo Mercado Libre**: precio anterior tachado con el % de descuento,
+  etiqueta "ENVÍO GRATIS", simulación de cuotas ("en 12x $4.500"). Requiere migración:
+  `products.compare_at_price` y `products.free_shipping`.
+- **Calificaciones y reseñas**: estrellas por producto, promedio y conteo, opiniones de
+  compradores. Solo debería poder calificar quien tenga un pedido pagado con ese producto.
+  Requiere migración: tabla `product_reviews` (user_id, product_id, rating, comment, order_id).
+- Otras ideas de ese estilo: galería de varias imágenes por producto, badge de "más vendido"
+  (derivable de `order_items`), lista de deseos.
+
+**Interfaz general:**
+- Reemplazar los emoji por un set de iconos real en los paneles profesionales (vet, gerente,
+  admin). En la parte del cliente los emoji funcionan bien con la marca.
+- Transiciones al cambiar de página.
+
+**Historia clínica** (se construyó la consulta estructurada; falta):
+- Peso y signos vitales por visita, con curva de peso en el tiempo.
+- Desparasitaciones con fecha de próxima dosis.
+- Ficha ampliada de la mascota: sexo, fecha de nacimiento (en vez de `age` fija que se
+  desactualiza), esterilizado, microchip, alergias estructuradas.
+- Certificado de vacunación como PDF aparte del historial completo.
+
+**Negocio:**
+- Cobro recurrente automático con tokenización del medio de pago en Wompi.
+- Wompi propio por clínica para sus tiendas (hoy simuladas).
+- Dominio propio + verificación en Resend, para que los correos lleguen a cualquier
+  destinatario y no solo a la cuenta dueña de Resend.
 
 ## Notas de decisiones tomadas
 

@@ -14,6 +14,7 @@ import Pets from './pages/Pets.jsx';
 import Appointments from './pages/Appointments.jsx';
 import Courses from './pages/Courses.jsx';
 import Shop from './pages/Shop.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
 import Cart from './pages/Cart.jsx';
 import History from './pages/History.jsx';
 import PaymentResult from './pages/PaymentResult.jsx';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/shop/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/payment-result" element={<PaymentResult />} />
 

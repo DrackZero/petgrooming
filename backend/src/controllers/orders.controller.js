@@ -66,6 +66,39 @@ export const listProducts = async (req, res, next) => {
   }
 };
 
+// GET /api/orders/products/:id  → ficha de un producto del catálogo público,
+// con los datos de la veterinaria que lo vende y otros productos de la misma
+// clínica para seguir comprando.
+export const getProduct = async (req, res, next) => {
+  try {
+    await expireOverdueSubscriptions().catch(() => {});
+    const { rows } = await query(
+      `SELECT p.*, c.name AS clinic_name, c.address AS clinic_address, c.phone AS clinic_phone
+       FROM products p
+       JOIN clinics c ON c.id = p.clinic_id
+       WHERE p.id = $1 AND p.active = true
+         AND c.status = 'activa' AND c.plan = 'pro' AND c.store_enabled = true`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'Producto no disponible' });
+    const product = rows[0];
+
+    const related = await query(
+      `SELECT p.*, c.name AS clinic_name
+       FROM products p
+       JOIN clinics c ON c.id = p.clinic_id
+       WHERE p.clinic_id = $1 AND p.id <> $2 AND p.active = true
+         AND c.status = 'activa' AND c.plan = 'pro' AND c.store_enabled = true
+       ORDER BY p.created_at DESC LIMIT 4`,
+      [product.clinic_id, product.id]
+    );
+
+    res.json({ product, related: related.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/orders  → historial de pedidos del usuario
 export const listOrders = async (req, res, next) => {
   try {
