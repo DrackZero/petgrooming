@@ -89,6 +89,7 @@ suspende la clínica sola y apaga su tienda; se llama antes de las lecturas que 
 - **Calendario mensual** del veterinario (puntos por estado), ahora como vista alternativa dentro de Agenda.
 - **Gráficas** sin dependencias externas (`BarList.jsx`, `TrendBars.jsx`): recaudo de 6 meses y distribución de clínicas en el panel admin, citas por estado en reportes del gerente.
 - **Estados de carga y vacíos** (`Skeleton.jsx`, `EmptyState.jsx`) y transiciones suaves, con `prefers-reduced-motion` respetado.
+- **Diálogo de confirmación propio** (`ConfirmDialog.jsx` + `ConfirmProvider` + `useConfirm()`): reemplazó las 9 llamadas a `confirm()` nativo. Se usa `if (!(await confirmar({...}))) return;`, así que las llamadas se leen igual que antes. Motivo del cambio: el cuadro nativo mostraba "petgrooming-tau.vercel.app dice:", bloqueaba el hilo del navegador, y —lo más grave— si el usuario marcaba "Impedir que esta página cree cuadros de diálogo", todas las confirmaciones posteriores devolvían `false` en silencio y las acciones no se ejecutaban sin explicación alguna.
 - **Jornada laboral masiva** (genera muchos horarios de una vez).
 - **Expiración de pedidos** pendientes (30 min → devuelve stock) + "Pagar ahora".
 - **Tooltips** informativos, **selector visual de especie** (perro/gato/otro), lightbox de imágenes, diseño responsive (menú hamburguesa), moneda COP.

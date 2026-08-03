@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { formatCOP } from '../../utils/format.js';
 import { wompiCheckoutUrl } from '../../utils/wompi.js';
 import Notification from '../../components/Notification.jsx';
+import { useConfirm } from '../../hooks/useConfirm.js';
 
 // Precios de los planes (mismos que en la plataforma).
 const PLANS = [
@@ -38,6 +39,7 @@ const formatDate = (d) =>
 // Panel del GERENTE: estado de su veterinaria + accesos a su gestión.
 export default function GerenteHome() {
   const { user } = useAuth();
+  const confirmar = useConfirm();
   const [clinic, setClinic] = useState(null);
   const [payments, setPayments] = useState([]);
   const [error, setError] = useState('');
@@ -100,7 +102,13 @@ export default function GerenteHome() {
 
   // Bajar a Básico (inmediato, sin pago). Apaga la tienda.
   const downgrade = async () => {
-    if (!confirm('¿Cambiar al plan Básico? Perderás la tienda y los cursos.')) return;
+    const ok = await confirmar({
+      title: 'Cambiar al plan Básico',
+      message: 'Tu tienda en línea se apagará y tus cursos dejarán de ser visibles para los clientes. El cambio es inmediato y no se reembolsa el tiempo pagado del plan Pro.',
+      confirmLabel: 'Cambiar a Básico',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const r = await downgradePlan();
       setClinic({ ...clinic, plan: r.plan, store_enabled: r.store_enabled });

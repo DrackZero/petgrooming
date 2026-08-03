@@ -7,6 +7,7 @@ import {
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
 import SpeciesPicker from '../../components/SpeciesPicker.jsx';
+import { useConfirm } from '../../hooks/useConfirm.js';
 
 const emptyPet = { owner_id: '', name: '', species: '', breed: '', age: '', notes: '' };
 const emptyConsultation = {
@@ -16,6 +17,7 @@ const emptyConsultation = {
 // Panel del VETERINARIO: registrar mascotas de clientes, sus vacunas,
 // y revisar solicitudes de mascota adicional enviadas por clientes.
 export default function VetPets() {
+  const confirmar = useConfirm();
   const [pets, setPets] = useState([]);
   const [clients, setClients] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -75,7 +77,13 @@ export default function VetPets() {
   };
 
   const removeVaccine = async (vaccineId) => {
-    if (!confirm('¿Eliminar esta vacuna del historial?')) return;
+    const ok = await confirmar({
+      title: 'Eliminar vacuna',
+      message: 'Se borrará del historial clínico de la mascota y dejará de aparecer en su PDF. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     await deleteVaccine(historyFor.id, vaccineId).catch(() => {});
     setHistory(await getPetHistory(historyFor.id).catch(() => null));
   };
@@ -96,7 +104,13 @@ export default function VetPets() {
   };
 
   const removeConsultation = async (consultationId) => {
-    if (!confirm('¿Eliminar esta consulta del historial?')) return;
+    const ok = await confirmar({
+      title: 'Eliminar consulta clínica',
+      message: 'Se borrarán el motivo, diagnóstico, tratamiento y medicamentos de esta atención. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     await deleteConsultation(historyFor.id, consultationId).catch(() => {});
     setHistory(await getPetHistory(historyFor.id).catch(() => null));
   };

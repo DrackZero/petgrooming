@@ -14,12 +14,14 @@ import WeekSchedule, { startOfWeek } from '../../components/WeekSchedule.jsx';
 import Notification from '../../components/Notification.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { SkeletonRows } from '../../components/Skeleton.jsx';
+import { useConfirm } from '../../hooks/useConfirm.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const toKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 // Panel del VETERINARIO: calendario mensual (estilo Q10) + agenda del día + gestión de citas.
 export default function VetAgenda() {
+  const confirmar = useConfirm();
   const today = new Date();
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [selectedDay, setSelectedDay] = useState(toKey(today));
@@ -94,8 +96,15 @@ export default function VetAgenda() {
   };
 
   const removeSlot = async (slot) => {
-    const hora = new Date(slot.starts_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    if (!confirm(`¿Eliminar la franja del ${hora}?`)) return;
+    const f = new Date(slot.starts_at);
+    const hora = `${f.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })} a las ${pad(f.getHours())}:${pad(f.getMinutes())}`;
+    const ok = await confirmar({
+      title: 'Eliminar franja de atención',
+      message: `Se quitará la franja del ${hora}. Los clientes dejarán de verla al agendar.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteSlot(slot.id);
       setMsg('Franja eliminada');

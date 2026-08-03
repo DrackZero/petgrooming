@@ -15,6 +15,7 @@ import TrendBars from '../../components/TrendBars.jsx';
 import BarList from '../../components/BarList.jsx';
 import { SkeletonRows } from '../../components/Skeleton.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import { useConfirm } from '../../hooks/useConfirm.js';
 
 const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -38,6 +39,7 @@ const statusStyle = {
 
 // Administración de plataforma: suscripciones de las clínicas + auditoría.
 export default function ManageClinics() {
+  const confirmar = useConfirm();
   const [clinics, setClinics] = useState([]);
   const [sub, setSub] = useState(null);
   const [log, setLog] = useState([]);
@@ -78,7 +80,13 @@ export default function ManageClinics() {
 
   // Corta el servicio al instante (útil para demostrar el ciclo sin esperar 30 días).
   const expireNow = async (c) => {
-    if (!confirm(`¿Vencer la suscripción de "${c.name}" ahora mismo? Quedará suspendida.`)) return;
+    const ok = await confirmar({
+      title: `Vencer la suscripción de ${c.name}`,
+      message: 'La clínica quedará suspendida al instante: sus veterinarios no podrán atender, sus horarios dejarán de ofrecerse y su tienda se ocultará. Puede reactivarla renovando su plan.',
+      confirmLabel: 'Vencer ahora',
+      danger: true,
+    });
+    if (!ok) return;
     await expireClinicNow(c.id).catch(() => {});
     setMsg(`Suscripción de "${c.name}" vencida — clínica suspendida`);
     load();

@@ -5,6 +5,7 @@ import {
 import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
 import WeekSchedule, { startOfWeek } from '../../components/WeekSchedule.jsx';
+import { useConfirm } from '../../hooks/useConfirm.js';
 
 // Orden visual L→D con los valores de getDay() (0=domingo).
 const WEEKDAYS = [
@@ -28,6 +29,7 @@ const emptyBulk = {
 
 // Panel del VETERINARIO: definir su jornada laboral y horarios de citas.
 export default function VetSlots() {
+  const confirmar = useConfirm();
   const [slots, setSlots] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [bulk, setBulk] = useState(emptyBulk);
@@ -84,8 +86,16 @@ export default function VetSlots() {
   };
 
   const removeSlotFromGrid = async (slot) => {
-    const hora = new Date(slot.starts_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    if (!confirm(`¿Eliminar la franja del ${hora}?`)) return;
+    const f = new Date(slot.starts_at);
+    const p2 = (n) => String(n).padStart(2, '0');
+    const hora = `${f.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })} a las ${p2(f.getHours())}:${p2(f.getMinutes())}`;
+    const ok = await confirmar({
+      title: 'Eliminar franja de atención',
+      message: `Se quitará la franja del ${hora}. Los clientes dejarán de verla al agendar.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     await deleteSlot(slot.id).catch(() => {});
     setMsg('Franja eliminada');
     load();

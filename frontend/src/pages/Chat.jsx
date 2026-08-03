@@ -10,10 +10,12 @@ import {
 import { useAuth } from '../hooks/useAuth.js';
 import { useChatSocket } from '../hooks/useChatSocket.js';
 import Notification from '../components/Notification.jsx';
+import { useConfirm } from '../hooks/useConfirm.js';
 
 // Chat de emergencia en vivo entre cliente y veterinario.
 // Envío por REST (fiable); recepción en tiempo real por WebSocket.
 export default function Chat() {
+  const confirmar = useConfirm();
   const { user, isClient } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [vets, setVets] = useState([]);
@@ -101,7 +103,14 @@ export default function Chat() {
   };
 
   const handleClose = async () => {
-    if (!active || !confirm('¿Cerrar esta conversación de urgencia?')) return;
+    if (!active) return;
+    const ok = await confirmar({
+      title: 'Cerrar la conversación de urgencia',
+      message: 'Se dará por atendida y dejarás de recibir mensajes en ella. Los mensajes quedan guardados y podrás consultarlos después.',
+      confirmLabel: 'Cerrar conversación',
+      danger: true,
+    });
+    if (!ok) return;
     await closeConversation(active.id).catch(() => {});
     setActive((prev) => (prev ? { ...prev, status: 'cerrada' } : prev));
     loadConversations();

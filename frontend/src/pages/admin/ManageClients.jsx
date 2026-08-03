@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirm } from '../../hooks/useConfirm.js';
 import {
   getClients,
   setClientActive,
@@ -14,6 +15,7 @@ import Notification from '../../components/Notification.jsx';
 import Tooltip from '../../components/Tooltip.jsx';
 
 export default function ManageClients() {
+  const confirmar = useConfirm();
   const [tab, setTab] = useState('clients'); // 'clients' | 'vets'
   const [clients, setClients] = useState([]);
   const [vets, setVets] = useState([]);
@@ -45,7 +47,12 @@ export default function ManageClients() {
   };
 
   const makeVet = async (c) => {
-    if (!confirm(`¿Asignar rol de VETERINARIO a ${c.name}? Dejará de ser cliente.`)) return;
+    const ok = await confirmar({
+      title: `Asignar rol de veterinario a ${c.name}`,
+      message: 'Dejará de ser cliente y pasará a tener acceso a las historias clínicas de todas las mascotas. Cada consulta que haga quedará registrada en la bitácora de auditoría.',
+      confirmLabel: 'Asignar rol',
+    });
+    if (!ok) return;
     try {
       const r = await assignVetRole(c.id);
       setMsg(`${r.name} ahora es ${r.role} ✓`);

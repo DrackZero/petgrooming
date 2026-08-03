@@ -8,6 +8,7 @@ import {
 import { getPets } from '../api/pets.js';
 import AppointmentForm from '../components/AppointmentForm.jsx';
 import Notification from '../components/Notification.jsx';
+import { useConfirm } from '../hooks/useConfirm.js';
 
 const statusStyle = {
   pendiente: 'bg-amber-50 text-amber-700',
@@ -17,6 +18,7 @@ const statusStyle = {
 };
 
 export default function Appointments() {
+  const confirmar = useConfirm();
   const [appointments, setAppointments] = useState([]);
   const [pets, setPets] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -43,7 +45,14 @@ export default function Appointments() {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('¿Cancelar esta cita?')) return;
+    const ok = await confirmar({
+      title: 'Cancelar la cita',
+      message: 'El horario quedará libre para otros clientes. Si cambias de opinión tendrás que agendar de nuevo, sujeto a disponibilidad.',
+      confirmLabel: 'Cancelar cita',
+      cancelLabel: 'Conservarla',
+      danger: true,
+    });
+    if (!ok) return;
     await cancelAppointment(id);
     load();
   };
